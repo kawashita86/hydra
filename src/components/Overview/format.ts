@@ -31,3 +31,22 @@ export function formatClock(at: number, now: number = Date.now()): string {
 export function formatCount(n: number): string {
   return n.toLocaleString('en-US')
 }
+
+/** `14:02:11` in local time. */
+export function formatTimeOfDay(at: number): string {
+  return new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+/** `14:02`, with the date when it is not today (`Oct 21 14:02`). */
+export function formatMinute(at: number, now: number = Date.now()): string {
+  const date = new Date(at)
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return date.toDateString() === new Date(now).toDateString()
+    ? time
+    : `${date.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${time}`
+}
+
+/** True when both timestamps fall on the same local day. */
+export function isSameDay(a: number, b: number): boolean {
+  return new Date(a).toDateString() === new Date(b).toDateString()
+}

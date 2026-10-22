@@ -28,8 +28,8 @@ describe('OwnEvents', () => {
     )
     const items = screen.getAllByRole('listitem').map((li) => li.textContent)
     expect(items).toHaveLength(2)
-    expect(items[0]).toContain('Needs you to Working, waited 4s')
-    expect(items[1]).toContain('Working to Needs you')
+    expect(items[0]).toContain('alpha is working after waiting 4s')
+    expect(items[1]).toContain('alpha is waiting for you')
   })
 
   it('says so when there are none', () => {

@@ -200,17 +200,3 @@
   font-size: var(--font-size-xs);
   color: var(--color-status-error);
 }
-
-.events {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  font-size: var(--font-size-sm);
-}
-
-.event {
-  color: var(--color-text-primary);
-}

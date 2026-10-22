@@ -1,6 +1,7 @@
 import type { OverviewEvent } from '@shared/overview/types'
-import { formatClock } from './format'
-import { eventText, eventsOfAgent } from './historyFacts'
+import { EventRow } from './EventRow'
+import rowStyles from './EventRow.module.css'
+import { eventsOfAgent } from './historyFacts'
 import styles from './SessionDetails.module.css'
 
 /** The events of one session for the details drawer, newest first. */
@@ -12,11 +13,9 @@ export function OwnEvents({ events, agentId, now }: { events: OverviewEvent[]; a
       {own.length === 0 ? (
         <p className={styles.muted}>No events yet</p>
       ) : (
-        <ul className={styles.events}>
+        <ul className={rowStyles.list}>
           {own.slice(0, 50).map((e) => (
-            <li key={e.id} className={styles.event}>
-              <span className={styles.sub}>{formatClock(e.at, now)}</span> {eventText(e)}
-            </li>
+            <EventRow key={e.id} event={e} now={now} />
           ))}
         </ul>
       )}

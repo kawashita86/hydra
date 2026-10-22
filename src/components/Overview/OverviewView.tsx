@@ -8,6 +8,7 @@ import { Card, EmptyState } from './Card'
 import { CountHistory } from './CountHistory'
 import { CountsRow } from './CountsRow'
 import { projectName } from './format'
+import { EventsCard } from './EventsCard'
 import { lastWaitFrom } from './historyFacts'
 import { LastHourChart } from './LastHourChart'
 import { NeedsYouPanel } from './NeedsYouPanel'
@@ -250,9 +251,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           onJumpToAgent={jump}
         />
 
-        <Card title="Events" area="events">
-          <EmptyState>No events yet</EmptyState>
-        </Card>
+        <EventsCard history={history} filter={filter} now={now} onOpenAgent={openDetails} />
 
         <TimelineCard
           points={historyPoints ?? noPoints}

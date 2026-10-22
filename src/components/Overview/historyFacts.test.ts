@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { OverviewEvent } from '@shared/overview/types'
-import { eventText, eventsOfAgent, lastWaitFrom } from './historyFacts'
+import { eventMarkKey, eventText, eventsOfAgent, lastWaitFrom } from './historyFacts'
 
 const NOW = 10_000_000
 const HOUR = 3_600_000
@@ -32,10 +32,31 @@ describe('eventsOfAgent and eventText', () => {
     expect(eventsOfAgent(events, 'a').map((e) => e.at)).toEqual([3, 1])
   })
 
-  it('describes each kind', () => {
-    expect(eventText(ev(1, { from: 'needs-you', to: 'working', waitedMs: 65_000 }))).toBe('Needs you to Working, waited 1m 05s')
-    expect(eventText(ev(1, { kind: 'appeared', to: 'idle' }))).toBe('Appeared, idle')
-    expect(eventText(ev(1, { kind: 'ended' }))).toBe('Removed from Hydra')
-    expect(eventText(ev(1, { kind: 'resumed', gapMs: 600_000 }))).toBe('Watching resumed after 10m')
+  it('describes each kind and transition', () => {
+    expect(eventText(ev(1, { kind: 'appeared', to: 'idle' }))).toBe('started')
+    expect(eventText(ev(1, { kind: 'ended' }))).toBe('ended')
+    expect(eventText(ev(1, { from: 'working', to: 'needs-you', waitingReason: 'permission' }))).toBe('is waiting for permission')
+    expect(eventText(ev(1, { from: 'working', to: 'needs-you', waitingReason: 'question' }))).toBe('is asking a question')
+    expect(eventText(ev(1, { from: 'working', to: 'needs-you' }))).toBe('is waiting for you')
+    expect(eventText(ev(1, { from: 'idle', to: 'working' }))).toBe('is working')
+    expect(eventText(ev(1, { from: 'working', to: 'idle' }))).toBe('went idle')
+    expect(eventText(ev(1, { from: 'working', to: 'finished' }))).toBe('finished')
+    expect(eventText(ev(1, { from: 'working', to: 'failed' }))).toBe('failed')
+  })
+
+  it('adds the wait when leaving needs-you', () => {
+    expect(eventText(ev(1, { from: 'needs-you', to: 'working', waitedMs: 252_000 }))).toBe(
+      'is working after waiting 4m 12s'
+    )
+  })
+
+  it('describes a gap', () => {
+    expect(eventText(ev(1, { kind: 'resumed', gapMs: 720_000 }))).toBe('Watching resumed \u2014 12m not measured')
+  })
+
+  it('keys the mark by status, ended or resumed', () => {
+    expect(eventMarkKey(ev(1, { to: 'needs-you' }))).toBe('needs_you')
+    expect(eventMarkKey(ev(1, { kind: 'ended' }))).toBe('ended')
+    expect(eventMarkKey(ev(1, { kind: 'resumed' }))).toBe('resumed')
   })
 })
