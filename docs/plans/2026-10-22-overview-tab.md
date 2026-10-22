@@ -10,7 +10,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 
 - [x] Step 0 — Branch and plan
 - [x] Step 1 — Overview status model (pure, shared)
-- [ ] Step 2 — Claude Code session registry reader
+- [x] Step 2 — Claude Code session registry reader
 - [ ] Step 3 — `OverviewTracker` in the daemon, and IPC down to the renderer
 - [ ] Step 4 — Third view: Grid | Chat | Overview
 - [ ] Step 5 — Needs you panel, counts and Jump
