@@ -1,0 +1,36 @@
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.strip {
+  display: block;
+  width: 100%;
+}
+
+.track {
+  fill: var(--color-border-subtle);
+}
+
+.axisWrap {
+  margin-left: calc(140px + var(--space-3));
+}

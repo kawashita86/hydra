@@ -9,14 +9,32 @@ interface CardProps {
   meta?: ReactNode
   /** Controls placed in the header, before the meta text. */
   actions?: ReactNode
+  /** Makes the title a button, for example to open a chart. */
+  onTitleClick?: (trigger: HTMLElement) => void
+  titleExpanded?: boolean
+  titleLabel?: string
   children: ReactNode
 }
 
-export function Card({ title, area, meta, actions, children }: CardProps) {
+export function Card({ title, area, meta, actions, onTitleClick, titleExpanded, titleLabel, children }: CardProps) {
   return (
     <section className={`${styles.card} ${styles[area]}`} aria-label={title}>
       <header className={styles.cardHeader}>
-        <h3 className={styles.cardTitle}>{title}</h3>
+        <h3 className={styles.cardTitle}>
+          {onTitleClick ? (
+            <button
+              type="button"
+              className={styles.cardTitleBtn}
+              aria-expanded={titleExpanded ?? false}
+              aria-label={titleLabel}
+              onClick={(e) => onTitleClick(e.currentTarget)}
+            >
+              {title}
+            </button>
+          ) : (
+            title
+          )}
+        </h3>
         {(actions || meta !== undefined) && (
           <div className={styles.cardHeaderEnd}>
             {actions}

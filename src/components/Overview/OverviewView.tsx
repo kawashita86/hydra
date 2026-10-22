@@ -1,19 +1,25 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import type { HistoryAgent } from '@shared/overview/types'
+import type { CountKey } from '@shared/overview/buckets'
 import { computeCounts } from '@shared/overview/status'
 import { useOverview } from '@/hooks/useOverview'
 import { useOverviewHistory } from '@/hooks/useOverviewHistory'
 import { Card, EmptyState } from './Card'
+import { CountHistory } from './CountHistory'
 import { CountsRow } from './CountsRow'
 import { projectName } from './format'
 import { lastWaitFrom } from './historyFacts'
+import { LastHourChart } from './LastHourChart'
 import { NeedsYouPanel } from './NeedsYouPanel'
 import { OwnEvents } from './OwnEvents'
 import { SessionDetails } from './SessionDetails'
 import { SessionsCard } from './SessionsCard'
+import { OwnTimeline, TimelineCard } from './TimelineCard'
 import styles from './OverviewView.module.css'
 
 const FILTER_STORAGE_KEY = 'hydra.overview.projectFilter'
 const ALL_PROJECTS = ''
+const NO_AGENTS: Record<string, HistoryAgent> = {}
 
 export { projectName }
 
@@ -49,7 +55,9 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
   const { history } = useOverviewHistory()
   const [storedFilter, setStoredFilter] = useState<string>(readStoredFilter)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [chartKey, setChartKey] = useState<CountKey | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+  const chartTriggerRef = useRef<HTMLElement | null>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
 
   const openDetails = useCallback((agentId: string, trigger: HTMLElement | null) => {
@@ -91,6 +99,31 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
     const ids = new Set(sessions.map((s) => s.agentId))
     return lastWaitFrom(historyEvents.filter((e) => ids.has(e.agentId)), now)
   }, [historyEvents, sessions, now])
+
+  const historyAgents = history?.agents
+  // Same identity until the filter or the known agents change, so the chart math can be memoized.
+  const agentFilter = useMemo(
+    () =>
+      filter === ALL_PROJECTS
+        ? undefined
+        : (agentId: string) => historyAgents?.[agentId]?.projectDir === filter,
+    [filter, historyAgents]
+  )
+  const historyPoints = history?.points
+  const historyStarts = history?.starts
+  const noPoints = useMemo<never[]>(() => [], [])
+
+  const toggleChart = useCallback((key: CountKey, trigger: HTMLElement) => {
+    chartTriggerRef.current = trigger
+    setChartKey((current) => (current === key ? null : key))
+  }, [])
+
+  // Esc or the close button: back to the count that opened the chart.
+  const closeChart = useCallback(() => {
+    setChartKey(null)
+    const trigger = chartTriggerRef.current
+    if (trigger?.isConnected) trigger.focus()
+  }, [])
 
   const handleFilterChange = (value: string) => {
     setStoredFilter(value)
@@ -168,7 +201,14 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
       </div>
 
       <div className={styles.grid}>
-        <Card title="Needs you" area="needs" meta={counts.needsYou > 0 ? counts.needsYou : undefined}>
+        <Card
+          title="Needs you"
+          area="needs"
+          meta={counts.needsYou > 0 ? counts.needsYou : undefined}
+          onTitleClick={(el) => toggleChart('needsYou', el)}
+          titleExpanded={chartKey === 'needsYou'}
+          titleLabel="Needs you history"
+        >
           <div className={styles.needsBody}>
             <NeedsYouPanel
               sessions={needsYou}
@@ -178,12 +218,27 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
               onOpenDetails={openDetails}
               lastWait={lastWait}
             />
-            <CountsRow counts={counts} />
+            <CountsRow counts={counts} onOpenChart={toggleChart} openChart={chartKey} />
+            {chartKey && (
+              <CountHistory
+                key={chartKey}
+                metric={chartKey}
+                points={historyPoints ?? noPoints}
+                starts={historyStarts ?? noPoints}
+                now={now}
+                agentFilter={agentFilter}
+                onClose={closeChart}
+              />
+            )}
           </div>
         </Card>
 
         <Card title="Last hour" area="lastHour">
-          <EmptyState>No history yet</EmptyState>
+          {historyPoints && historyStarts ? (
+            <LastHourChart points={historyPoints} starts={historyStarts} now={now} agentFilter={agentFilter} />
+          ) : (
+            <EmptyState>No history yet</EmptyState>
+          )}
         </Card>
 
         <SessionsCard
@@ -199,9 +254,13 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           <EmptyState>No events yet</EmptyState>
         </Card>
 
-        <Card title="Timeline" area="timeline">
-          <EmptyState>No history yet</EmptyState>
-        </Card>
+        <TimelineCard
+          points={historyPoints ?? noPoints}
+          starts={historyStarts ?? noPoints}
+          now={now}
+          agents={historyAgents ?? NO_AGENTS}
+          agentFilter={agentFilter}
+        />
 
         <Card title="Waits" area="waits">
           <EmptyState>No waits recorded yet</EmptyState>
@@ -217,6 +276,14 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           onClose={closeDetails}
           onJumpToAgent={jump}
           ownEvents={<OwnEvents events={history?.events ?? []} agentId={selectedId} now={now} />}
+          timelineRow={
+            <OwnTimeline
+              points={historyPoints ?? noPoints}
+              starts={historyStarts ?? noPoints}
+              now={now}
+              agentId={selectedId}
+            />
+          }
         />
       )}
     </div>

@@ -189,3 +189,27 @@
   justify-content: space-between;
   gap: var(--space-3);
 }
+
+.cardTitleBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.cardTitleBtn:hover,
+.cardTitleBtn[aria-expanded='true'] {
+  color: var(--color-text-primary);
+}
+
+.cardTitleBtn:focus-visible {
+  outline: 2px solid var(--color-text-secondary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

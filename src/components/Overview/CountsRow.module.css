@@ -40,3 +40,27 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.chartBtn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.chartBtn:hover,
+.chartBtn[aria-expanded='true'] {
+  color: var(--color-text-primary);
+}
+
+.chartBtn:focus-visible {
+  outline: 2px solid var(--color-text-secondary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

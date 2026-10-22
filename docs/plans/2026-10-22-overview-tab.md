@@ -17,7 +17,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 6 — What a waiting session asks (transcript tail)
 - [x] Step 7 — Sessions card: List, Repos, Board and details drawer
 - [x] Step 8 — History: events and samples, kept on disk
-- [ ] Step 9 — Last hour chart and Timeline
+- [x] Step 9 — Last hour chart and Timeline
 - [ ] Step 10 — Events log
 - [ ] Step 11 — Waits (Waited on you bars, today / 7 days)
 - [ ] Step 12 — Polish: badges, notifications, docs
