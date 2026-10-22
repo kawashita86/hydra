@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs'
-import { basename, join } from 'path'
+import { basename, join, resolve } from 'path'
 import { homedir } from 'os'
 import type { ClaudeSessionSummary } from '@shared/types'
 
@@ -30,10 +30,34 @@ interface JsonlHeader {
   firstPrompt: string
 }
 
-const DEFAULT_CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects')
 const INDEX_FILENAME = 'sessions-index.json'
 const JSONL_MAX_HEADER_CHARS = 64 * 1024
 const SESSION_CACHE_TTL_MS = 5000
+
+/**
+ * Every Claude Code projects dir on this machine: the default `~/.claude`,
+ * `$CLAUDE_CONFIG_DIR` when set, and alternate profiles kept as `~/.claude-<name>`
+ * (e.g. `CLAUDE_CONFIG_DIR=~/.claude-work claude`). Missing dirs are skipped.
+ */
+export function discoverClaudeProjectsDirs(
+  home: string = homedir(),
+  env: NodeJS.ProcessEnv = process.env
+): string[] {
+  const configDirs = [join(home, '.claude')]
+  if (env.CLAUDE_CONFIG_DIR) configDirs.push(resolve(env.CLAUDE_CONFIG_DIR))
+  try {
+    for (const entry of readdirSync(home, { withFileTypes: true })) {
+      if (entry.isDirectory() && /^\.claude-.+/.test(entry.name)) {
+        configDirs.push(join(home, entry.name))
+      }
+    }
+  } catch {
+    // Unreadable home dir: fall back to the default profile only.
+  }
+
+  const projectsDirs = configDirs.map((dir) => join(dir, 'projects'))
+  return [...new Set(projectsDirs)].filter((dir) => existsSync(dir))
+}
 
 function normalizePathForComparison(input: string): string {
   const normalized = input.replace(/\\/g, '/').replace(/\/+$/, '')
@@ -83,11 +107,16 @@ export interface ListSessionOptions {
 
 export class SessionCatalog {
   private cache: { sessions: ClaudeSessionSummary[]; expiresAt: number } | null = null
+  private readonly projectsDirs: () => string[]
 
+  /** Without `projectsDir`, profiles are rediscovered on every scan so new ones show up. */
   constructor(
-    private readonly projectsDir: string = DEFAULT_CLAUDE_PROJECTS_DIR,
+    projectsDir?: string | string[],
     private readonly cacheTtlMs: number = SESSION_CACHE_TTL_MS
-  ) {}
+  ) {
+    const fixedDirs = projectsDir === undefined ? null : [projectsDir].flat()
+    this.projectsDirs = () => fixedDirs ?? discoverClaudeProjectsDirs()
+  }
 
   listSessions(options: ListSessionOptions = {}): ClaudeSessionSummary[] {
     const sessions = this.getSessionSnapshot(options.forceRefresh === true)
@@ -149,15 +178,17 @@ export class SessionCatalog {
   }
 
   private scanProjects(): ClaudeSessionSummary[] {
-    if (!existsSync(this.projectsDir)) return []
-
     const sessions: ClaudeSessionSummary[] = []
-    const projects = readdirSync(this.projectsDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => join(this.projectsDir, entry.name))
+    for (const projectsDir of this.projectsDirs()) {
+      if (!existsSync(projectsDir)) continue
 
-    for (const projectDir of projects) {
-      sessions.push(...this.readProjectSessions(projectDir))
+      const projects = readdirSync(projectsDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => join(projectsDir, entry.name))
+
+      for (const projectDir of projects) {
+        sessions.push(...this.readProjectSessions(projectDir))
+      }
     }
     return sessions
   }

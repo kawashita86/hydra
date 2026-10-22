@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, type Dirent } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import type { ProviderId } from '@shared/types'
+import { discoverClaudeProjectsDirs } from './SessionCatalog'
 
 export interface TranscriptMessage {
   role: 'user' | 'assistant'
@@ -20,7 +21,6 @@ interface TranscriptEntry {
   timestamp: string
 }
 
-const CLAUDE_PROJECTS_DIR = join(homedir(), '.claude', 'projects')
 const CODEX_SESSIONS_DIR = join(homedir(), '.codex', 'sessions')
 const MAX_MESSAGES = 50
 
@@ -211,7 +211,12 @@ function findTranscriptFile(
     return findCodexTranscriptFile(sessionId, options.codexSessionsDir ?? CODEX_SESSIONS_DIR)
   }
 
-  return findClaudeTranscriptFile(sessionId, options.claudeProjectsDir ?? CLAUDE_PROJECTS_DIR)
+  const projectsDirs = options.claudeProjectsDir ? [options.claudeProjectsDir] : discoverClaudeProjectsDirs()
+  for (const projectsDir of projectsDirs) {
+    const found = findClaudeTranscriptFile(sessionId, projectsDir)
+    if (found) return found
+  }
+  return null
 }
 
 function findClaudeTranscriptFile(sessionId: string, projectsDir: string): string | null {
