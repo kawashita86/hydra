@@ -219,7 +219,7 @@ function findTranscriptFile(
   return null
 }
 
-function findClaudeTranscriptFile(sessionId: string, projectsDir: string): string | null {
+export function findClaudeTranscriptFile(sessionId: string, projectsDir: string): string | null {
   if (!existsSync(projectsDir)) return null
 
   try {

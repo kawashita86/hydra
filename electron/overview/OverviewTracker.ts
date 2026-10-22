@@ -8,6 +8,7 @@ import type {
 } from '@shared/overview/types'
 import { computeCounts, deriveStatus, isStale, quietForMs } from '@shared/overview/status'
 import { matchRegistryEntries, type RegistryEntry } from './claudeRegistry'
+import type { WaitingTextReader } from './waitingText'
 import { descendantPids, type ProcessTable } from './processTree'
 
 /** The slice of `AgentManager` the tracker needs. */
@@ -23,6 +24,8 @@ export interface OverviewTrackerDeps {
   registryReader: { read(configDirs: string[]): RegistryEntry[] }
   processTableReader: { read(): Promise<ProcessTable> }
   configDirs: () => string[]
+  /** Reads what a waiting Claude session asks; optional. */
+  waitingTextReader?: Pick<WaitingTextReader, 'read' | 'forget' | 'retain'>
   now?: () => number
   /** Poll interval. Default 2 s. */
   pollIntervalMs?: number
@@ -44,6 +47,7 @@ function sessionKey(s: OverviewSession): string {
     s.status,
     s.statusSince,
     s.waitingReason ?? null,
+    s.waitingText ?? null,
     s.stale,
     s.quietForMs !== undefined,
     s.pid,
@@ -61,6 +65,7 @@ export class OverviewTracker extends EventEmitter {
   private readonly registryReader: OverviewTrackerDeps['registryReader']
   private readonly processTableReader: OverviewTrackerDeps['processTableReader']
   private readonly configDirs: () => string[]
+  private readonly waitingTextReader: OverviewTrackerDeps['waitingTextReader']
   private readonly now: () => number
   private readonly pollIntervalMs: number
   private readonly statusDebounceMs: number
@@ -88,6 +93,7 @@ export class OverviewTracker extends EventEmitter {
     this.registryReader = deps.registryReader
     this.processTableReader = deps.processTableReader
     this.configDirs = deps.configDirs
+    this.waitingTextReader = deps.waitingTextReader
     this.now = deps.now ?? Date.now
     this.pollIntervalMs = deps.pollIntervalMs ?? 2000
     this.statusDebounceMs = deps.statusDebounceMs ?? 100
@@ -154,6 +160,7 @@ export class OverviewTracker extends EventEmitter {
 
     const now = this.now()
     const alive = new Set<string>()
+    const waiting = new Set<string>()
     const sessions: OverviewSession[] = agents.map((agent) => {
       alive.add(agent.id)
       const activity = this.agentManager.getActivity(agent.id) ?? NO_ACTIVITY
@@ -162,6 +169,19 @@ export class OverviewTracker extends EventEmitter {
       const since = previous && previous.status === derived.status ? previous.since : now
       this.tracked.set(agent.id, { status: derived.status, since })
       const started = agent.startedAt ? Date.parse(agent.startedAt) : NaN
+      const match = matches.get(agent.id)
+      const sessionId = match?.sessionId ?? agent.sessionId
+      let waitingText: string | undefined
+      if (this.waitingTextReader && derived.status === 'needs-you' && agent.provider === 'claude' && sessionId) {
+        waiting.add(agent.id)
+        waitingText =
+          this.waitingTextReader.read({
+            agentId: agent.id,
+            sessionId,
+            projectDir: agent.projectDir,
+            configDir: match?.configDir
+          }) ?? undefined
+      }
       return {
         agentId: agent.id,
         name: agent.name,
@@ -176,9 +196,11 @@ export class OverviewTracker extends EventEmitter {
         stale: isStale(derived.status, since, now),
         pid: agent.pid,
         startedAt: Number.isFinite(started) ? started : 0,
-        lastOutputAt: activity.lastOutputAt
+        lastOutputAt: activity.lastOutputAt,
+        ...(waitingText ? { waitingText } : {})
       }
     })
+    this.waitingTextReader?.retain(waiting)
     for (const id of [...this.tracked.keys()]) {
       if (!alive.has(id)) this.tracked.delete(id)
     }

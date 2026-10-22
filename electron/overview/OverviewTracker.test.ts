@@ -86,6 +86,48 @@ describe('OverviewTracker', () => {
     expect(readRegistry).toHaveBeenCalledWith(['/cfg'])
   })
 
+  it('sets waitingText for a needs-you Claude session and clears it when it stops waiting', async () => {
+    const waitingTextReader = {
+      read: vi.fn().mockReturnValue('Run: npm test'),
+      forget: vi.fn(),
+      retain: vi.fn()
+    }
+    tracker.stop()
+    tracker = new OverviewTracker({
+      agentManager: manager,
+      registryReader: { read: readRegistry },
+      processTableReader: { read: readTable },
+      configDirs: () => ['/cfg'],
+      waitingTextReader,
+      now: () => clock
+    })
+    emitted = []
+    tracker.on('snapshot', (s: OverviewSnapshot) => emitted.push(s))
+    tracker.start()
+    manager.agents = [makeAgent({ provider: 'claude', sessionId: 's1' })]
+    manager.activity.set('a1', { lastOutputAt: clock, lastExitCode: null })
+    entries = [{ file: 'f', configDir: '/cfg', pid: 7, sessionId: 's1', status: 'waiting', waitingFor: 'permission prompt' }]
+    let snap = await tracker.refresh()
+    expect(snap.sessions[0].waitingText).toBe('Run: npm test')
+    expect(waitingTextReader.read).toHaveBeenCalledWith({
+      agentId: 'a1',
+      sessionId: 's1',
+      projectDir: '/work/proj',
+      configDir: '/cfg'
+    })
+    const pushed = emitted.length
+
+    waitingTextReader.read.mockReturnValue('Run: other')
+    snap = await tracker.refresh()
+    expect(snap.sessions[0].waitingText).toBe('Run: other')
+    expect(emitted.length).toBe(pushed + 1)
+
+    entries = [{ file: 'f', configDir: '/cfg', pid: 7, sessionId: 's1', status: 'busy' }]
+    snap = await tracker.refresh()
+    expect(snap.sessions[0].waitingText).toBeUndefined()
+    expect(waitingTextReader.retain).toHaveBeenLastCalledWith(new Set())
+  })
+
   it('keeps statusSince while the status is unchanged', async () => {
     manager.agents = [makeAgent()]
     manager.activity.set('a1', { lastOutputAt: 0, lastExitCode: null })

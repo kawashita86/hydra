@@ -27,6 +27,7 @@ import { getDefaultModelForProvider } from '@shared/types'
 import { OverviewTracker } from '../overview/OverviewTracker'
 import { ClaudeRegistryReader } from '../overview/claudeRegistry'
 import { ProcessTableReader } from '../overview/processTree'
+import { WaitingTextReader } from '../overview/waitingText'
 import { discoverClaudeConfigDirs } from '../sessions/claudeProfiles'
 import { fixPath } from '../util/fix-path'
 
@@ -183,7 +184,8 @@ async function main(): Promise<void> {
     agentManager,
     registryReader: new ClaudeRegistryReader(),
     processTableReader: new ProcessTableReader(),
-    configDirs: () => discoverClaudeConfigDirs()
+    configDirs: () => discoverClaudeConfigDirs(),
+    waitingTextReader: new WaitingTextReader()
   })
 
   const server = new DaemonServer({
