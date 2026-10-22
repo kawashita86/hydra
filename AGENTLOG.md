@@ -613,3 +613,11 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 - A resumed session must run in the profile whose `projects/` dir holds its transcript, or `claude --resume` fails with "No conversation found". The resolver checks the session catalog first and only falls back to the project mapping for new sessions.
 - Only apply the profile env to the `claude` provider; Codex/OpenCode ignore it, but keep their env untouched.
 - `RemoteControlService.test.ts` "disable() transitions to disabled state" is flaky (~1 in 6 full-file runs, on upstream too). Re-run before chasing it.
+
+### Linux packaging fails on Python 3.12+ (node-gyp / distutils)
+
+**Context**: `electron-builder --linux` rebuilds `node-pty` from source (there are no Linux prebuilds). The bundled `node-gyp` imports `distutils`, which Python 3.12+ removed.
+
+**Mistake**: Running `npm run dist:linux` with the system Python fails with `ModuleNotFoundError: No module named 'distutils'`.
+
+**Fix**: Point node-gyp at a Python that has `setuptools` (it provides the `distutils` shim): `python3 -m venv ~/.cache/hydra-build-venv && ~/.cache/hydra-build-venv/bin/pip install setuptools`, then build with `npm_config_python=~/.cache/hydra-build-venv/bin/python npx electron-builder --linux AppImage --x64 --publish never`.
