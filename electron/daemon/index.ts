@@ -24,6 +24,14 @@ import { writeLockFile, removeLockFile } from './lock'
 import { HydraMcpServer } from '../mcp/McpServer'
 import { SkillScanner } from '../skills/SkillScanner'
 import { getDefaultModelForProvider } from '@shared/types'
+import { OverviewTracker } from '../overview/OverviewTracker'
+import { ClaudeRegistryReader } from '../overview/claudeRegistry'
+import { ProcessTableReader } from '../overview/processTree'
+import { WaitingTextReader } from '../overview/waitingText'
+import { AgentDetailsReader } from '../overview/agentDetails'
+import { GitInfoCache } from '../overview/gitInfo'
+import { HistoryStore } from '../overview/HistoryStore'
+import { discoverClaudeConfigDirs } from '../sessions/claudeProfiles'
 import { fixPath } from '../util/fix-path'
 
 // ── Parse CLI args ────────────────────────────────────────────────────────────
@@ -165,6 +173,8 @@ async function main(): Promise<void> {
     console.log('[daemon] Shutting down...')
     workspaceStore.setAgents(agentManager.exportWorkspaceAgents())
     agentManager.killAll()
+    overviewTracker.stop()
+    overviewHistory.stop() // flushes what is buffered
     mcpServer?.stop()
     server.stop()
     removeLockFile(lockPath)
@@ -173,6 +183,23 @@ async function main(): Promise<void> {
   }
 
   const skillScanner = new SkillScanner()
+
+  // Single writer: this daemon is single-instance (see ./lock.ts), so the history folder needs no lock.
+  const overviewHistory = new HistoryStore({ dir: join(userDataPath, 'overview-history') })
+  overviewHistory.start()
+
+  const overviewTracker = new OverviewTracker({
+    history: overviewHistory,
+    agentManager,
+    registryReader: new ClaudeRegistryReader(),
+    processTableReader: new ProcessTableReader(),
+    configDirs: () => discoverClaudeConfigDirs(),
+    waitingTextReader: new WaitingTextReader(),
+    gitInfo: new GitInfoCache(),
+    detailsReader: new AgentDetailsReader()
+  })
+
+  notificationService.connectOverviewEvents(overviewTracker)
 
   const server = new DaemonServer({
     socketPath,
@@ -185,10 +212,13 @@ async function main(): Promise<void> {
     notificationService,
     mcpServer,
     skillScanner,
+    overviewTracker,
+    overviewHistory,
     onShutdown: shutdown
   })
 
   await server.start()
+  overviewTracker.start()
 
   // Write lock file
   writeLockFile(lockPath, {

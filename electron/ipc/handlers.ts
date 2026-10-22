@@ -270,6 +270,22 @@ export function registerIpcHandlers(
     return daemonClient ? daemonClient.list() : []
   })
 
+  ipcMain.handle(IPC.OVERVIEW_GET, async () => {
+    return getDaemonClient().getOverview()
+  })
+
+  ipcMain.handle(IPC.OVERVIEW_HISTORY, async (_event, sinceMs: number) => {
+    return getDaemonClient().getOverviewHistory(z.number().finite().parse(sinceMs))
+  })
+
+  ipcMain.handle(IPC.OVERVIEW_WAITS, async () => {
+    return getDaemonClient().getOverviewWaits()
+  })
+
+  ipcMain.handle(IPC.OVERVIEW_AGENT_DETAILS, async (_event, agentId: string) => {
+    return getDaemonClient().getOverviewAgentDetails(agentIdSchema.parse(agentId))
+  })
+
   ipcMain.handle(IPC.AGENT_YOLO_TOGGLE, async (_event, agentId: string, yolo: boolean) => {
     return getDaemonClient().toggleYolo(agentIdSchema.parse(agentId), z.boolean().parse(yolo))
   })

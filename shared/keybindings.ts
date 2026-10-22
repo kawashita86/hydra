@@ -1,5 +1,6 @@
 export type HydraCommandId =
   | 'toggle-view'
+  | 'show-overview'
   | 'switch-agent-by-index'
   | 'new-agent'
   | 'close-agent'
@@ -47,6 +48,7 @@ export interface KeybindingMatch {
 
 const COMMAND_DEFINITIONS = [
   { id: 'toggle-view', label: 'Toggle Chat / Grid View', category: 'Navigation', showInShortcuts: true, showInPalette: true },
+  { id: 'show-overview', label: 'Show Overview', category: 'Navigation', showInShortcuts: true, showInPalette: true },
   { id: 'switch-agent-by-index', label: 'Switch to agent by index', category: 'Navigation', showInShortcuts: true, showInPalette: false },
   { id: 'new-agent', label: 'New Agent', category: 'Agents', showInShortcuts: true, showInPalette: true },
   { id: 'close-agent', label: 'Close Selected Agent', category: 'Agents', showInShortcuts: true, showInPalette: true },
@@ -85,6 +87,7 @@ export const KEYBINDING_COMMANDS_BY_ID: Record<HydraCommandId, KeybindingCommand
 
 export const DEFAULT_KEYBINDINGS: KeybindingRule[] = [
   { command: 'toggle-view', keys: 'mod+\\' },
+  { command: 'show-overview', keys: 'mod+shift+o' },
   { command: 'switch-agent-by-index', keys: 'mod+1-9' },
   { command: 'new-agent', keys: 'mod+n' },
   { command: 'close-agent', keys: 'mod+w' },

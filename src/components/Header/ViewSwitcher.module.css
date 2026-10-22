@@ -29,3 +29,17 @@
   color: var(--color-text-primary);
   box-shadow: var(--shadow-sm);
 }
+
+.badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-status-starting);
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

@@ -5,6 +5,7 @@ export function useViewMode(defaultMode: ViewMode = 'chat') {
   const [viewMode, setViewMode] = useState<ViewMode>(defaultMode)
 
   const toggleViewMode = useCallback(() => {
+    // Grid <-> Chat; from Overview go to Chat.
     setViewMode((prev) => (prev === 'chat' ? 'grid' : 'chat'))
   }, [])
 

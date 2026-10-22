@@ -17,6 +17,7 @@ import type {
   McpServerStatus,
   FreeTerminalLayout
 } from '@shared/types'
+import type { OverviewEvent, OverviewSnapshot } from '@shared/overview/types'
 
 // ── REST API ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,9 @@ export type WsServerMessage =
   | { type: 'agent:output'; payload: AgentOutputPayload }
   | { type: 'agent:status'; payload: AgentStatusPayload }
   | { type: 'agent:waiting'; payload: { agentId: string } }
+  | { type: 'overview:snapshot'; payload: OverviewSnapshot }
+  /** New events of one poll, sent apart from snapshots (which are only sent when the sessions change). */
+  | { type: 'overview:events'; payload: OverviewEvent[] }
   | { type: 'notification'; payload: HydraNotification }
   | { type: 'config:changed'; payload: AppConfig }
   | { type: 'headless:event'; payload: { runId: string; data: string } }

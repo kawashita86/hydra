@@ -10,6 +10,7 @@ import { getProvider, getAllProviders } from './providers'
 import { wrapWithShell, type ShellConfig } from './shellWrapper'
 import { buildAgentEnv, claudeProfileEnv } from './agentEnv'
 import { MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
+import type { AgentActivity } from '@shared/overview/types'
 import { detectLatestModelFromTerminalOutput } from '@shared/terminalModelDetection'
 import type { PersistedWorkspaceAgent } from '../workspace/WorkspaceStore'
 import type {
@@ -37,6 +38,8 @@ interface ManagedAgent {
   sessionDiscoveryAttempts: number
   notifiedIdle: boolean
   lastOutputAt: number
+  /** Exit code of the last PTY run; null while running or never run. */
+  lastExitCode: number | null
 }
 
 const MAX_BUFFER_CHARS = 2_000_000 // ~2 MB raw output cap
@@ -238,7 +241,8 @@ export class AgentManager extends EventEmitter {
       sessionSyncTimer: null,
       sessionDiscoveryAttempts: 0,
       notifiedIdle: false,
-      lastOutputAt: 0
+      lastOutputAt: 0,
+      lastExitCode: null
     }
 
     this.agents.set(id, managed)
@@ -298,7 +302,8 @@ export class AgentManager extends EventEmitter {
         sessionSyncTimer: null,
         sessionDiscoveryAttempts: 0,
         notifiedIdle: false,
-        lastOutputAt: 0
+        lastOutputAt: 0,
+        lastExitCode: null
       })
       imported++
     }
@@ -353,7 +358,8 @@ export class AgentManager extends EventEmitter {
         sessionSyncTimer: null,
         sessionDiscoveryAttempts: 0,
         notifiedIdle: false,
-        lastOutputAt: 0
+        lastOutputAt: 0,
+        lastExitCode: null
       })
       restored++
     }
@@ -442,6 +448,7 @@ export class AgentManager extends EventEmitter {
       return 'capped'
     }
 
+    managed.lastExitCode = null
     const provider = getProvider(managed.state.provider)
     const rawCmd = this.providerPaths.get(managed.state.provider) || provider.command
     const rawArgs = this.buildArgs(managed.state)
@@ -534,6 +541,7 @@ export class AgentManager extends EventEmitter {
         }
         managed.pty = null
         managed.state.pid = null
+        managed.lastExitCode = exitCode
         this.stopSessionDiscovery(managed)
         this.probeSessionIdFromCatalog(managed, { forceRefresh: true })
 
@@ -1025,6 +1033,12 @@ export class AgentManager extends EventEmitter {
 
   list(): AgentState[] {
     return Array.from(this.agents.values()).map((m) => ({ ...m.state }))
+  }
+
+  /** Output/exit facts for the Overview, or null for an unknown agent. */
+  getActivity(agentId: string): AgentActivity | null {
+    const managed = this.agents.get(agentId)
+    return managed ? { lastOutputAt: managed.lastOutputAt, lastExitCode: managed.lastExitCode } : null
   }
 
   get(agentId: string): AgentState | null {

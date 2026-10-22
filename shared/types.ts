@@ -112,7 +112,7 @@ export const EDITOR_REGISTRY: EditorDefinition[] = [
 
 // ── Config ───────────────────────────────────────────────────────────────────
 export type ThemeId = 'light' | 'dark' | 'midnight'
-export type ViewMode = 'grid' | 'chat'
+export type ViewMode = 'grid' | 'chat' | 'overview'
 export type GridColumns = 'auto' | 2 | 3
 /**
  * Terminal shell wrapping mode.
@@ -263,6 +263,14 @@ export const IPC = {
   AGENT_RENAME: 'agent:rename',
   AGENT_MODEL_SET: 'agent:model-set',
   AGENT_GET_BUFFER: 'agent:get-buffer',
+
+  // Overview
+  OVERVIEW_GET: 'overview:get',
+  OVERVIEW_SNAPSHOT: 'overview:snapshot',
+  OVERVIEW_AGENT_DETAILS: 'overview:agent-details',
+  OVERVIEW_HISTORY: 'overview:history',
+  OVERVIEW_WAITS: 'overview:waits',
+  OVERVIEW_EVENTS: 'overview:events',
 
   // Config
   CONFIG_GET: 'config:get',

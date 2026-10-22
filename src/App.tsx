@@ -34,6 +34,9 @@ import {
   type HydraCommandId
 } from '@shared/keybindings'
 import { SIDEBAR_SEARCH_FOCUS_EVENT } from './components/Sidebar/SearchBar'
+import { useOverviewSnapshot, needsYouCount } from './hooks/useOverview'
+import { useNeedsYouTitle } from './hooks/useNeedsYouTitle'
+import { OverviewView } from './components/Overview/OverviewView'
 import { ShortcutsOverlay } from './components/Shortcuts/ShortcutsOverlay'
 import styles from './App.module.css'
 
@@ -64,7 +67,7 @@ function readWorkspaceUiState(): PersistedWorkspaceUiState {
 
     const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceUiState>
     const viewMode = parsed.viewMode
-    const safeViewMode: ViewMode | null = viewMode === 'grid' || viewMode === 'chat' ? viewMode : null
+    const safeViewMode: ViewMode | null = viewMode === 'grid' || viewMode === 'chat' || viewMode === 'overview' ? viewMode : null
 
     return {
       selectedProject: typeof parsed.selectedProject === 'string' ? parsed.selectedProject : null,
@@ -111,6 +114,10 @@ export default function App() {
     openDownload
   } = useUpdates()
   const remoteControl = useRemoteControl()
+  // One snapshot subscription for the tab badge, the window title and the Overview view (its 1 s tick stays inside the view).
+  const overview = useOverviewSnapshot()
+  const needsYou = needsYouCount(overview.snapshot)
+  useNeedsYouTitle(needsYou)
   const {
     agents,
     agentList,
@@ -362,11 +369,23 @@ export default function App() {
     showYoloConfirm
   ])
 
+  // Same effect as clicking the agent in the sidebar; the chat-mode effect below selects its project.
+  const handleJumpToAgent = useCallback(
+    (agentId: string) => {
+      setSelectedAgentId(agentId)
+      setViewMode('chat')
+    },
+    [setSelectedAgentId, setViewMode]
+  )
+
   const executeCommand = useCallback(
     (commandId: HydraCommandId, argument?: string): boolean => {
       switch (commandId) {
         case 'toggle-view':
           toggleViewMode()
+          return true
+        case 'show-overview':
+          setViewMode('overview')
           return true
         case 'switch-agent-by-index': {
           if (!argument) return false
@@ -504,6 +523,7 @@ export default function App() {
       selectedAgent,
       selectedAgentId,
       setSelectedAgentId,
+      setViewMode,
       toggleViewMode,
       toggleYolo,
       updateState.supported,
@@ -680,7 +700,8 @@ export default function App() {
     <div className={styles.app}>
       <Header
         viewMode={viewMode}
-        onToggleViewMode={toggleViewMode}
+        onSelectViewMode={setViewMode}
+        needsYouCount={needsYou}
         onOpenNewAgent={handleOpenNewAgentForCurrentProject}
         globalYolo={config.globalYolo}
         onToggleGlobalYolo={handleGlobalYoloToggle}
@@ -800,6 +821,14 @@ export default function App() {
                 }
                 void setAgentModel(selectedAgentId, nextModel)
                 sendTerminalInput(selectedAgentId, `/model ${nextModel}\r`)
+              }}
+            />
+          ) : renderedViewMode === 'overview' ? (
+            <OverviewView
+              overview={overview}
+              onJumpToAgent={handleJumpToAgent}
+              onOpenNewAgent={() => {
+                void handleOpenNewAgent()
               }}
             />
           ) : (
@@ -1116,7 +1145,7 @@ function ViewSwitchLoadingState({ targetMode }: { targetMode: ViewMode }) {
       <div className={styles.viewLoadingSpinner} aria-hidden="true" />
       <div className={styles.viewLoadingText}>
         <span className={styles.viewLoadingTitle}>
-          Opening {targetMode === 'chat' ? 'chat' : 'grid'} view
+          Opening {targetMode} view
         </span>
         <span className={styles.viewLoadingSubtitle}>
           Rendering the interface for this workspace.
