@@ -6,7 +6,7 @@ import styles from './Header.module.css'
 
 interface HeaderProps {
   viewMode: ViewMode
-  onToggleViewMode: () => void
+  onSelectViewMode: (mode: ViewMode) => void
   onOpenNewAgent: () => void
   globalYolo: boolean
   onToggleGlobalYolo: () => void
@@ -27,7 +27,7 @@ interface HeaderProps {
 
 export function Header({
   viewMode,
-  onToggleViewMode,
+  onSelectViewMode,
   onOpenNewAgent,
   globalYolo: _globalYolo,
   onToggleGlobalYolo: _onToggleGlobalYolo,
@@ -68,7 +68,7 @@ export function Header({
       </div>
 
       <div className={`${styles.center} titlebar-no-drag`}>
-        <ViewSwitcher viewMode={viewMode} onToggle={onToggleViewMode} />
+        <ViewSwitcher viewMode={viewMode} onSelect={onSelectViewMode} />
       </div>
 
       <div className={`${styles.right} titlebar-no-drag`}>

@@ -112,7 +112,7 @@ export const EDITOR_REGISTRY: EditorDefinition[] = [
 
 // ── Config ───────────────────────────────────────────────────────────────────
 export type ThemeId = 'light' | 'dark' | 'midnight'
-export type ViewMode = 'grid' | 'chat'
+export type ViewMode = 'grid' | 'chat' | 'overview'
 export type GridColumns = 'auto' | 2 | 3
 /**
  * Terminal shell wrapping mode.

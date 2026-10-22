@@ -12,7 +12,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 1 — Overview status model (pure, shared)
 - [x] Step 2 — Claude Code session registry reader
 - [x] Step 3 — `OverviewTracker` in the daemon, and IPC down to the renderer
-- [ ] Step 4 — Third view: Grid | Chat | Overview
+- [x] Step 4 — Third view: Grid | Chat | Overview
 - [ ] Step 5 — Needs you panel, counts and Jump
 - [ ] Step 6 — What a waiting session asks (transcript tail)
 - [ ] Step 7 — Sessions card: List, Repos, Board and details drawer
@@ -161,7 +161,7 @@ Each step ends green on `npm run typecheck && npm test`, and is one or a few Con
 - `useViewMode`: `toggleViewMode` keeps flipping Grid ↔ Chat (existing shortcut unchanged); add `setViewMode('overview')`.
 - `ViewSwitcher`: three tabs, each calling `setViewMode` directly (today both buttons call `onToggle`). Header prop changes accordingly.
 - `App.tsx`: `safeViewMode` in `readWorkspaceUiState` (line ~67) must accept `'overview'`; render `<OverviewView>` when selected; the editor overlay and per-project header bits stay chat/grid-only.
-- New keybinding in `shared/keybindings.ts`, e.g. `Cmd/Ctrl+Shift+O` → Overview (check for conflicts in `ShortcutsOverlay`).
+- Keybinding `mod+shift+o` (command `show-overview`) → Overview.
 - `useOverview()` hook: initial `getOverview()` + subscription; local 1 s ticker for timers.
 - `OverviewView` skeleton: responsive CSS grid with the six card slots, empty states.
 - **Decided**: the Overview shows **all projects**, with a project filter at the top (default "All"). The Grid already covers per-project.

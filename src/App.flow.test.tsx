@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import type { AgentState, AppConfig, PreflightResult, ViewMode } from '@shared/types'
 import { DEFAULT_KEYBINDINGS } from '@shared/keybindings'
@@ -60,8 +60,15 @@ vi.mock('./hooks/useUpdates', () => ({
 }))
 
 vi.mock('./components/Header/Header', () => ({
-  Header: (props: { onOpenSettings: () => void; onOpenHeadless: () => void; onOpenUsage: () => void }) => (
+  Header: (props: {
+    onOpenSettings: () => void
+    onOpenHeadless: () => void
+    onOpenUsage: () => void
+    onSelectViewMode: (mode: ViewMode) => void
+  }) => (
     <div>
+      <button onClick={() => props.onSelectViewMode('overview')}>show-overview</button>
+      <button onClick={() => props.onSelectViewMode('chat')}>show-chat</button>
       <button onClick={props.onOpenSettings}>settings</button>
       <button onClick={props.onOpenHeadless}>headless</button>
       <button onClick={props.onOpenUsage}>usage</button>
@@ -83,6 +90,10 @@ vi.mock('./components/GridView/GridView', () => ({
   GridView: (props: { onRemoveAgent: (id: string) => void }) => (
     <button onClick={() => props.onRemoveAgent('sess-abc12345')}>remove-imported</button>
   )
+}))
+
+vi.mock('./components/Overview/OverviewView', () => ({
+  OverviewView: () => <div>overview-view</div>
 }))
 
 vi.mock('./components/Settings/SettingsPanel', () => ({
@@ -244,6 +255,8 @@ function setupViewModeMock() {
 }
 
 describe('App flow behavior', () => {
+  afterEach(cleanup)
+
   beforeEach(() => {
     window.localStorage.clear()
     currentConfig = { ...baseConfig }
@@ -373,5 +386,39 @@ describe('App flow behavior', () => {
         })
       )
     })
+  })
+
+  it('switches to the Overview and back to Chat', async () => {
+    const { rerender } = render(<App />)
+    expect(await screen.findByText('chat-view')).toBeTruthy()
+
+    fireEvent.click(screen.getByText('show-overview'))
+    expect(currentViewMode).toBe('overview')
+    rerender(<App />)
+    expect(await screen.findByText('overview-view')).toBeTruthy()
+    expect(screen.queryByText('chat-view')).toBeNull()
+
+    fireEvent.click(screen.getByText('show-chat'))
+    expect(currentViewMode).toBe('chat')
+    rerender(<App />)
+    expect(await screen.findByText('chat-view')).toBeTruthy()
+  })
+
+  it('restores a persisted Overview view mode', async () => {
+    window.localStorage.setItem(
+      'hydra:workspace-ui:v1',
+      JSON.stringify({ viewMode: 'overview' })
+    )
+    currentViewMode = 'overview'
+    setupViewModeMock()
+    render(<App />)
+    expect(await screen.findByText('overview-view')).toBeTruthy()
+  })
+
+  it('opens the Overview with its keyboard shortcut', async () => {
+    render(<App />)
+    await screen.findByText('chat-view')
+    fireEvent.keyDown(window, { key: 'O', ctrlKey: true, shiftKey: true })
+    expect(currentViewMode).toBe('overview')
   })
 })

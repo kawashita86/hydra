@@ -34,6 +34,7 @@ import {
   type HydraCommandId
 } from '@shared/keybindings'
 import { SIDEBAR_SEARCH_FOCUS_EVENT } from './components/Sidebar/SearchBar'
+import { OverviewView } from './components/Overview/OverviewView'
 import { ShortcutsOverlay } from './components/Shortcuts/ShortcutsOverlay'
 import styles from './App.module.css'
 
@@ -64,7 +65,7 @@ function readWorkspaceUiState(): PersistedWorkspaceUiState {
 
     const parsed = JSON.parse(raw) as Partial<PersistedWorkspaceUiState>
     const viewMode = parsed.viewMode
-    const safeViewMode: ViewMode | null = viewMode === 'grid' || viewMode === 'chat' ? viewMode : null
+    const safeViewMode: ViewMode | null = viewMode === 'grid' || viewMode === 'chat' || viewMode === 'overview' ? viewMode : null
 
     return {
       selectedProject: typeof parsed.selectedProject === 'string' ? parsed.selectedProject : null,
@@ -368,6 +369,9 @@ export default function App() {
         case 'toggle-view':
           toggleViewMode()
           return true
+        case 'show-overview':
+          setViewMode('overview')
+          return true
         case 'switch-agent-by-index': {
           if (!argument) return false
           const index = parseInt(argument, 10) - 1
@@ -504,6 +508,7 @@ export default function App() {
       selectedAgent,
       selectedAgentId,
       setSelectedAgentId,
+      setViewMode,
       toggleViewMode,
       toggleYolo,
       updateState.supported,
@@ -680,7 +685,7 @@ export default function App() {
     <div className={styles.app}>
       <Header
         viewMode={viewMode}
-        onToggleViewMode={toggleViewMode}
+        onSelectViewMode={setViewMode}
         onOpenNewAgent={handleOpenNewAgentForCurrentProject}
         globalYolo={config.globalYolo}
         onToggleGlobalYolo={handleGlobalYoloToggle}
@@ -800,6 +805,12 @@ export default function App() {
                 }
                 void setAgentModel(selectedAgentId, nextModel)
                 sendTerminalInput(selectedAgentId, `/model ${nextModel}\r`)
+              }}
+            />
+          ) : renderedViewMode === 'overview' ? (
+            <OverviewView
+              onOpenNewAgent={() => {
+                void handleOpenNewAgent()
               }}
             />
           ) : (
@@ -1116,7 +1127,7 @@ function ViewSwitchLoadingState({ targetMode }: { targetMode: ViewMode }) {
       <div className={styles.viewLoadingSpinner} aria-hidden="true" />
       <div className={styles.viewLoadingText}>
         <span className={styles.viewLoadingTitle}>
-          Opening {targetMode === 'chat' ? 'chat' : 'grid'} view
+          Opening {targetMode} view
         </span>
         <span className={styles.viewLoadingSubtitle}>
           Rendering the interface for this workspace.
