@@ -588,3 +588,19 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 - `@pierre/trees` 1.0.0-beta.3 expects a flat array of POSIX-style paths. It doesn't lazy-load directories like our existing `FileTree` does. For a first pass we BFS the project on the renderer using the existing `readDir` IPC, capped at 5000 paths / depth 10. If perf bites on big repos, swap to a single main-process walker IPC. Don't try to mutate `paths` by passing new options on re-render — the docs explicitly say later option changes aren't a controlled path. Use `model.resetPaths(...)` from an effect instead.
 - Selection vs activation: trees has no "open file" event. We treat single-row selection as open by reading the last entry of `onSelectionChange` and checking `model.getItem(p).isDirectory()`.
 - Feature flag: `src/lib/featureFlags.ts` is localStorage-backed with a `useSyncExternalStore` hook, exposed on `window.hydraFlags` for devtools toggling (`hydraFlags.set('experimentalViews', false)` to fall back to Monaco/old tree).
+
+### Multiple Claude Code profiles (CLAUDE_CONFIG_DIR)
+
+**Context**: Users can run several Claude accounts side by side with `CLAUDE_CONFIG_DIR=~/.claude-work claude` (usually behind a shell alias). Sessions for that profile live in `~/.claude-work/projects`, not `~/.claude/projects`.
+
+**Mistake**: `SessionCatalog` and `TranscriptReader` hardcoded `~/.claude/projects`, so sessions from alternate profiles never appeared in the session list or chat history even though the agents themselves ran fine.
+
+**Fix**: Use `discoverClaudeProjectsDirs()` (default profile + `$CLAUDE_CONFIG_DIR` + every `~/.claude-<name>`) wherever Claude transcripts are read. Don't add new `join(homedir(), '.claude', 'projects')` constants.
+
+### Parent Claude Code session env leaking into agents
+
+**Context**: Launching Hydra from a terminal inside a Claude Code session (or from an agent's Bash tool) makes Hydra inherit that session's markers (`CLAUDECODE`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_SESSION_ID`, ...).
+
+**Mistake**: Agents were spawned with `{ ...process.env }`. `CLAUDE_CODE_CHILD_SESSION` makes Claude treat each agent as a sub-session and turn transcript saving off ("Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker"), so the session can't be resumed later.
+
+**Fix**: Build agent/headless env with `buildAgentEnv()` from `electron/agents/agentEnv.ts`, which strips only the per-session markers. Don't blanket-strip `CLAUDE_CODE_*`: user settings like `CLAUDE_CODE_USE_BEDROCK` share that prefix.

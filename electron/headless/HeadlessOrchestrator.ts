@@ -12,6 +12,7 @@ import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { getProvider } from '../agents/providers'
+import { buildAgentEnv } from '../agents/agentEnv'
 import type {
   HeadlessRun,
   HeadlessRunStatus,
@@ -93,10 +94,7 @@ export class HeadlessOrchestrator extends EventEmitter {
       const spawnArgs = process.platform === 'win32' ? ['/c', provider.command, ...args] : args
       const child = spawn(spawnCmd, spawnArgs, {
         cwd: payload.projectDir,
-        env: {
-          ...process.env,
-          FORCE_COLOR: '0'
-        }
+        env: buildAgentEnv({ FORCE_COLOR: '0' })
       })
       managed.process = child
 

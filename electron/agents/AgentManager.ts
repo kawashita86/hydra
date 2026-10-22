@@ -7,6 +7,7 @@ import { SessionCatalog } from '../sessions/SessionCatalog'
 import { CodexSessionCatalog } from '../sessions/CodexSessionCatalog'
 import { getProvider, getAllProviders } from './providers'
 import { wrapWithShell, type ShellConfig } from './shellWrapper'
+import { buildAgentEnv } from './agentEnv'
 import { MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
 import { detectLatestModelFromTerminalOutput } from '@shared/terminalModelDetection'
 import type { PersistedWorkspaceAgent } from '../workspace/WorkspaceStore'
@@ -437,11 +438,10 @@ export class AgentManager extends EventEmitter {
     const rawCmd = this.providerPaths.get(managed.state.provider) || provider.command
     const rawArgs = this.buildArgs(managed.state)
 
-    const ptyEnv = {
-      ...process.env,
+    const ptyEnv = buildAgentEnv({
       TERM: 'xterm-256color',
       FORCE_COLOR: '1'
-    }
+    })
 
     const ptyOptions = {
       name: 'xterm-256color',
