@@ -28,6 +28,7 @@ import { useUpdates } from './hooks/useUpdates'
 import { useRemoteControl } from './hooks/useRemoteControl'
 import { RUNNING_PROJECT_ID } from '@shared/types'
 import type { PreflightResult, ViewMode, EditorId } from '@shared/types'
+import { withClaudeProfile } from '@shared/claudeProfiles'
 import {
   matchKeybindingEvent,
   type HydraCommandId
@@ -734,6 +735,12 @@ export default function App() {
               onWidthChange={setSidebarWidth}
               sessionMaxAgeDays={config.sessionMaxAgeDays}
               defaultEditor={config.defaultEditor}
+              claudeProfileByProject={config.claudeProfileByProject}
+              onSetClaudeProfile={(projectDir, configDir) => {
+                void updateConfig({
+                  claudeProfileByProject: withClaudeProfile(config.claudeProfileByProject ?? {}, projectDir, configDir)
+                })
+              }}
             />
           )
         )}

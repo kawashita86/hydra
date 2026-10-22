@@ -1,6 +1,8 @@
 import { AgentItem } from './AgentItem'
 import { EditorIcon } from '../shared/EditorIcon'
-import type { ProjectGroup, EditorId } from '@shared/types'
+import type { ProjectGroup, EditorId, ClaudeProfile } from '@shared/types'
+import { claudeProfileLabel, resolveClaudeProfile } from '@shared/claudeProfiles'
+import { ClaudeProfileOptions } from '../shared/ClaudeProfileOptions'
 import { getEditorLabel } from '../../lib/editorUtils'
 import styles from './ProjectTree.module.css'
 
@@ -16,9 +18,18 @@ interface ProjectTreeProps {
   expanded: boolean
   onToggleExpanded: () => void
   numberedAgentMap?: Map<string, number>
+  claudeProfiles?: ClaudeProfile[]
+  claudeProfileByProject?: Record<string, string>
+  /** `null` clears this project's own mapping so it inherits again. */
+  onSetClaudeProfile?: (projectDir: string, configDir: string | null) => void
 }
 
-export function ProjectTree({ group, selectedAgentId, onSelectAgent, onNewAgentForProject, onRenameAgent, onRemoveAgent, onStopAgent, defaultEditor = 'vscode', expanded, onToggleExpanded, numberedAgentMap }: ProjectTreeProps) {
+const INHERIT_PROFILE = '__inherit__'
+
+export function ProjectTree({ group, selectedAgentId, onSelectAgent, onNewAgentForProject, onRenameAgent, onRemoveAgent, onStopAgent, defaultEditor = 'vscode', expanded, onToggleExpanded, numberedAgentMap, claudeProfiles = [], claudeProfileByProject = {}, onSetClaudeProfile }: ProjectTreeProps) {
+  const ownProfile = claudeProfileByProject[group.projectDir]
+  const effectiveProfile = resolveClaudeProfile(group.projectDir, claudeProfileByProject)
+  const showProfilePicker = !!onSetClaudeProfile && (claudeProfiles.length > 1 || effectiveProfile !== null)
 
   return (
     <div className={styles.group}>
@@ -33,6 +44,30 @@ export function ProjectTree({ group, selectedAgentId, onSelectAgent, onNewAgentF
           <FolderIcon open={expanded} />
           <span className={styles.projectName}>{group.projectName}</span>
         </button>
+        {showProfilePicker && (
+          <label
+            className={`${styles.profileChip} ${effectiveProfile === null ? styles.profileChipUnset : ''} ${ownProfile === undefined ? styles.profileChipInherited : ''}`}
+            title={
+              effectiveProfile === null
+                ? 'Claude profile: not set (uses Hydra\'s environment). Click to choose.'
+                : `Claude profile: ${claudeProfileLabel(effectiveProfile, claudeProfiles)}${ownProfile === undefined ? ' (inherited from a parent folder)' : ''}`
+            }
+          >
+            <ProfileIcon />
+            {effectiveProfile !== null && <span>{claudeProfileLabel(effectiveProfile, claudeProfiles)}</span>}
+            <select
+              className={styles.profileSelect}
+              aria-label={`Claude profile for ${group.projectName}`}
+              value={ownProfile ?? INHERIT_PROFILE}
+              onChange={(e) => onSetClaudeProfile?.(group.projectDir, e.target.value === INHERIT_PROFILE ? null : e.target.value)}
+            >
+              <option value={INHERIT_PROFILE}>
+                {effectiveProfile !== null && ownProfile === undefined ? 'Inherit from parent folder' : 'Not set'}
+              </option>
+              <ClaudeProfileOptions profiles={claudeProfiles} selected={ownProfile} />
+            </select>
+          </label>
+        )}
         <button
           className={styles.addBtn}
           onClick={() => window.hydra.openInApp(defaultEditor, group.projectDir)}
@@ -89,6 +124,15 @@ function FolderIcon({ open }: { open: boolean }) {
   return (
     <svg className={styles.folderIcon} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16Z" />
+    </svg>
+  )
+}
+
+function ProfileIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
     </svg>
   )
 }

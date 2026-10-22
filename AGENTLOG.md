@@ -604,3 +604,12 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 **Mistake**: Agents were spawned with `{ ...process.env }`. `CLAUDE_CODE_CHILD_SESSION` makes Claude treat each agent as a sub-session and turn transcript saving off ("Transcript saving is off — inherited CLAUDE_CODE_CHILD_SESSION marker"), so the session can't be resumed later.
 
 **Fix**: Build agent/headless env with `buildAgentEnv()` from `electron/agents/agentEnv.ts`, which strips only the per-session markers. Don't blanket-strip `CLAUDE_CODE_*`: user settings like `CLAUDE_CODE_USE_BEDROCK` share that prefix.
+
+### Claude profile per project
+
+**Context**: `claudeProfileByProject` in config maps project dirs to a Claude config dir (`''` = default `~/.claude`). `createClaudeProfileResolver()` in `electron/sessions/claudeProfiles.ts` is shared by `AgentManager` and `HeadlessOrchestrator`.
+
+**Gotchas**:
+- A resumed session must run in the profile whose `projects/` dir holds its transcript, or `claude --resume` fails with "No conversation found". The resolver checks the session catalog first and only falls back to the project mapping for new sessions.
+- Only apply the profile env to the `claude` provider; Codex/OpenCode ignore it, but keep their env untouched.
+- `RemoteControlService.test.ts` "disable() transitions to disabled state" is flaky (~1 in 6 full-file runs, on upstream too). Re-run before chasing it.

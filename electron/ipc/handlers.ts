@@ -13,6 +13,7 @@ import { GitService } from '../git/GitService'
 import { RemoteControlService } from '../remote/RemoteControlService'
 import { ProviderModelCatalog } from '../agents/ProviderModelCatalog'
 import { KeybindingStore } from '../config/KeybindingStore'
+import { listClaudeProfiles } from '../sessions/claudeProfiles'
 import { IPC, EDITOR_REGISTRY, MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
 import type {
   CreateAgentPayload,
@@ -98,7 +99,8 @@ const appConfigPatchSchema = z
     freeTerminalIdleTimeoutMinutes: z.number().int().min(1).max(1440).optional(),
     freeTerminalScrollbackLines: z.number().int().min(100).max(100000).optional(),
     gitPanelDisplayMode: z.enum(['overlay', 'split']).optional(),
-    editorPanelDisplayMode: z.enum(['overlay', 'split']).optional()
+    editorPanelDisplayMode: z.enum(['overlay', 'split']).optional(),
+    claudeProfileByProject: z.record(z.string().min(1).max(4096), z.string().max(4096)).optional()
   })
   .strict()
 const headlessStartSchema = z.object({
@@ -464,6 +466,8 @@ export function registerIpcHandlers(
     }
     return result.filePaths[0]
   })
+
+  ipcMain.handle(IPC.CLAUDE_PROFILES_LIST, () => listClaudeProfiles())
 
   ipcMain.handle(IPC.FS_LIST_DIRS, async (_event, rawQuery: unknown) => {
     const query = typeof rawQuery === 'string' ? rawQuery : ''

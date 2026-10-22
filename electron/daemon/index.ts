@@ -14,6 +14,7 @@ import { homedir } from 'os'
 import { AgentManager } from '../agents/AgentManager'
 import { ConfigStore } from '../config/ConfigStore'
 import { SessionCatalog } from '../sessions/SessionCatalog'
+import { createClaudeProfileResolver } from '../sessions/claudeProfiles'
 import { CodexSessionCatalog } from '../sessions/CodexSessionCatalog'
 import { HeadlessOrchestrator } from '../headless/HeadlessOrchestrator'
 import { WorkspaceStore } from '../workspace/WorkspaceStore'
@@ -87,6 +88,12 @@ async function main(): Promise<void> {
     }
   })
   const headlessOrchestrator = new HeadlessOrchestrator(join(userDataPath, 'headless-runs'))
+  const claudeProfileResolver = createClaudeProfileResolver(
+    sessionCatalog,
+    () => configStore.get().claudeProfileByProject
+  )
+  agentManager.setClaudeProfileResolver(claudeProfileResolver)
+  headlessOrchestrator.setClaudeProfileResolver(claudeProfileResolver)
   const notificationService = new DaemonNotificationService()
 
   // Restore workspace agents

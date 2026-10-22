@@ -12,7 +12,8 @@ import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { getProvider } from '../agents/providers'
-import { buildAgentEnv } from '../agents/agentEnv'
+import { buildAgentEnv, claudeProfileEnv } from '../agents/agentEnv'
+import type { ClaudeProfileResolver } from '../sessions/claudeProfiles'
 import type {
   HeadlessRun,
   HeadlessRunStatus,
@@ -45,11 +46,17 @@ const DEFAULT_LOG_MAX_CHARS = 120_000
 
 export class HeadlessOrchestrator extends EventEmitter {
   private runs = new Map<string, ManagedHeadlessRun>()
+  // Claude profile (CLAUDE_CONFIG_DIR) for a run; null keeps Hydra's own env.
+  private claudeProfileResolver: ClaudeProfileResolver = () => null
 
   constructor(private readonly baseDir: string) {
     super()
     mkdirSync(this.baseDir, { recursive: true })
     this.hydrateRunsFromDisk()
+  }
+
+  setClaudeProfileResolver(resolver: ClaudeProfileResolver): void {
+    this.claudeProfileResolver = resolver
   }
 
   start(payload: StartHeadlessRunPayload): HeadlessRun {
@@ -94,7 +101,12 @@ export class HeadlessOrchestrator extends EventEmitter {
       const spawnArgs = process.platform === 'win32' ? ['/c', provider.command, ...args] : args
       const child = spawn(spawnCmd, spawnArgs, {
         cwd: payload.projectDir,
-        env: buildAgentEnv({ FORCE_COLOR: '0' })
+        env: buildAgentEnv({
+          ...(payload.provider === 'claude'
+            ? claudeProfileEnv(this.claudeProfileResolver(payload.projectDir, payload.resumeSessionId ?? null))
+            : {}),
+          FORCE_COLOR: '0'
+        })
       })
       managed.process = child
 

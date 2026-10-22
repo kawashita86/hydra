@@ -5,6 +5,7 @@ import { SortDropdown } from './SortDropdown'
 import { FilterDropdown } from './FilterDropdown'
 import { FilterChips } from './FilterChips'
 import { useFilterSort } from './useFilterSort'
+import { useClaudeProfiles } from '../../hooks/useClaudeProfiles'
 import { fuzzyScore } from '../../lib/fuzzy'
 import type { ProjectGroup, EditorId } from '@shared/types'
 import styles from './Sidebar.module.css'
@@ -22,6 +23,8 @@ interface SidebarProps {
   onWidthChange: (width: number) => void
   sessionMaxAgeDays: number
   defaultEditor?: EditorId
+  claudeProfileByProject?: Record<string, string>
+  onSetClaudeProfile?: (projectDir: string, configDir: string | null) => void
 }
 
 const MIN_WIDTH = 200
@@ -39,8 +42,11 @@ export function Sidebar({
   width,
   onWidthChange,
   sessionMaxAgeDays,
-  defaultEditor = 'vscode'
+  defaultEditor = 'vscode',
+  claudeProfileByProject,
+  onSetClaudeProfile
 }: SidebarProps) {
+  const claudeProfiles = useClaudeProfiles()
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => new Set(projectGroups.map((g) => g.projectDir)))
   const seenDirsRef = useRef<Set<string>>(new Set(projectGroups.map((g) => g.projectDir)))
@@ -246,6 +252,9 @@ export function Sidebar({
               defaultEditor={defaultEditor}
               expanded={expandedDirs.has(group.projectDir)}
               onToggleExpanded={() => toggleDir(group.projectDir)}
+              claudeProfiles={claudeProfiles}
+              claudeProfileByProject={claudeProfileByProject}
+              onSetClaudeProfile={onSetClaudeProfile}
             />
           ))
         )}

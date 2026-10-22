@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { SessionCatalog, discoverClaudeProjectsDirs } from './SessionCatalog'
+import { SessionCatalog } from './SessionCatalog'
 
 const tempDirs: string[] = []
 
@@ -446,45 +446,5 @@ describe('SessionCatalog', () => {
     expect(catalog.listSessions({ projectPathPrefix: '/var/www/test' }).map((entry) => entry.sessionId)).toEqual([
       'session-work'
     ])
-  })
-})
-
-describe('discoverClaudeProjectsDirs', () => {
-  afterEach(() => {
-    for (const dir of tempDirs.splice(0)) {
-      rmSync(dir, { recursive: true, force: true })
-    }
-  })
-
-  it('finds the default profile, ~/.claude-<name> profiles and CLAUDE_CONFIG_DIR', () => {
-    const home = makeProjectsRoot()
-    const custom = makeProjectsRoot()
-    for (const dir of ['.claude', '.claude-work', '.claude-alternative', '.claude-empty']) {
-      mkdirSync(join(home, dir), { recursive: true })
-    }
-    mkdirSync(join(home, '.claude', 'projects'))
-    mkdirSync(join(home, '.claude-work', 'projects'))
-    mkdirSync(join(home, '.claude-alternative', 'projects'))
-    mkdirSync(join(custom, 'projects'))
-    writeFileSync(join(home, '.claude-notes'), '', 'utf-8')
-
-    const dirs = discoverClaudeProjectsDirs(home, { CLAUDE_CONFIG_DIR: custom })
-    expect(dirs[0]).toBe(join(home, '.claude', 'projects'))
-    expect([...dirs].sort()).toEqual(
-      [
-        join(home, '.claude', 'projects'),
-        join(home, '.claude-alternative', 'projects'),
-        join(home, '.claude-work', 'projects'),
-        join(custom, 'projects')
-      ].sort()
-    )
-  })
-
-  it('does not list a profile twice when CLAUDE_CONFIG_DIR points at one', () => {
-    const home = makeProjectsRoot()
-    mkdirSync(join(home, '.claude-work', 'projects'), { recursive: true })
-
-    const dirs = discoverClaudeProjectsDirs(home, { CLAUDE_CONFIG_DIR: join(home, '.claude-work') })
-    expect(dirs).toEqual([join(home, '.claude-work', 'projects')])
   })
 })

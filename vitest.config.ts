@@ -14,7 +14,7 @@ export default defineConfig({
     globals: false,
     environment: 'node',
     setupFiles: ['./src/test-setup.ts'],
-    include: ['electron/**/*.test.ts', 'src/**/*.test.{ts,tsx}'],
+    include: ['electron/**/*.test.ts', 'src/**/*.test.{ts,tsx}', 'shared/**/*.test.ts'],
     // Sequential file execution to prevent Firebase dynamic import() mock contamination
     fileParallelism: false
   }

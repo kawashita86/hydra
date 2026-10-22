@@ -14,6 +14,9 @@ import {
   MAX_CONCURRENT_AGENTS_HARD_LIMIT
 } from '@shared/types'
 import { useRuntimeProviderModels } from '../../hooks/useRuntimeProviderModels'
+import { useClaudeProfiles } from '../../hooks/useClaudeProfiles'
+import { withClaudeProfile } from '@shared/claudeProfiles'
+import { ClaudeProfileOptions } from '../shared/ClaudeProfileOptions'
 import { fuzzyScoreAny } from '../../lib/fuzzy'
 import { ShortcutsTab } from './ShortcutsTab'
 import { SkillsTab } from './SkillsTab'
@@ -27,6 +30,7 @@ const PROVIDER_ICONS: Record<ProviderId, string> = { claude: claudeIcon, codex: 
 type SectionId =
   | 'appearance'
   | 'agents'
+  | 'profiles'
   | 'sessions'
   | 'remote'
   | 'terminal'
@@ -37,6 +41,7 @@ type SectionId =
 const SECTIONS: Array<{ id: SectionId; label: string; keywords: string[] }> = [
   { id: 'appearance', label: 'Appearance', keywords: ['appearance', 'theme', 'color', 'view', 'chat', 'grid', 'sound', 'dark', 'light', 'midnight', 'terracotta', 'overlay', 'split', 'git panel', 'editor panel', 'side loader'] },
   { id: 'agents', label: 'Agent Defaults', keywords: ['agent', 'provider', 'model', 'claude', 'codex', 'opencode', 'concurrent', 'max', 'yolo', 'project', 'directory'] },
+  { id: 'profiles', label: 'Claude Profiles', keywords: ['claude', 'profile', 'account', 'config dir', 'claude_config_dir', 'work', 'project'] },
   { id: 'sessions', label: 'Session Import', keywords: ['session', 'import', 'limit', 'age', 'prefix', 'hidden'] },
   { id: 'remote', label: 'Remote Control', keywords: ['remote', 'control', 'timeout'] },
   { id: 'terminal', label: 'Terminal', keywords: ['terminal', 'shell', 'bash', 'zsh', 'pwsh', 'powershell', 'font', 'cursor', 'webgl', 'path', 'scrollback', 'background', 'lru', 'idle', 'lifecycle', 'cmd+j'] },
@@ -96,6 +101,10 @@ export function SettingsPanel({
   const [searchQuery, setSearchQuery] = useState('')
   const [configPath, setConfigPath] = useState('')
   const { providerModels, getDefaultModel } = useRuntimeProviderModels()
+  const claudeProfiles = useClaudeProfiles()
+  const profileByProject = config.claudeProfileByProject ?? {}
+  const setProjectProfile = (projectDir: string, configDir: string | null) =>
+    onUpdate({ claudeProfileByProject: withClaudeProfile(profileByProject, projectDir, configDir) })
 
   useEffect(() => {
     window.hydra.getConfigPath().then(setConfigPath).catch(() => { /* ignore */ })
@@ -367,6 +376,73 @@ export function SettingsPanel({
                 >
                   Browse
                 </button>
+              </div>
+            </div>
+          </div>}
+
+          {/* ── Claude Profiles ────────────────────────────────── */}
+          {isVisible('profiles') && <div className={styles.section}>
+            <h3 className={styles.sectionTitle}>Claude Profiles</h3>
+
+            <div className={styles.field}>
+              <span className={styles.inlineHint}>
+                Run a project's Claude agents with a specific Claude Code profile
+                (<code>CLAUDE_CONFIG_DIR</code>). Subfolders use their nearest mapped parent.
+                Profiles are found at <code>~/.claude</code> and <code>~/.claude-&lt;name&gt;</code>.
+                Resumed sessions always reopen in the profile that saved them.
+              </span>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label}>Project Profiles</label>
+              {Object.keys(profileByProject).length === 0 ? (
+                <span className={styles.inlineHint}>
+                  No projects mapped. Agents use the profile Hydra was started with.
+                </span>
+              ) : (
+                <div className={styles.profileList}>
+                  {Object.entries(profileByProject)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([projectDir, configDir]) => (
+                      <div key={projectDir} className={styles.profileRow}>
+                        <span className={styles.profilePath} title={projectDir}>{projectDir}</span>
+                        <select
+                          className={`${styles.select} ${styles.profileSelect}`}
+                          aria-label={`Claude profile for ${projectDir}`}
+                          value={configDir}
+                          onChange={(e) => setProjectProfile(projectDir, e.target.value)}
+                        >
+                          <ClaudeProfileOptions profiles={claudeProfiles} selected={configDir} />
+                        </select>
+                        <button
+                          className={styles.clearBtn}
+                          onClick={() => setProjectProfile(projectDir, null)}
+                          title="Remove mapping"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
+              <div className={styles.inlineRow} style={{ marginTop: '0.5rem' }}>
+                <button
+                  className={styles.browseBtn}
+                  disabled={claudeProfiles.length === 0}
+                  onClick={async () => {
+                    const dir = await window.hydra.selectDirectory()
+                    if (!dir) return
+                    const firstAlternate = claudeProfiles.find((profile) => !profile.isDefault)
+                    setProjectProfile(dir, profileByProject[dir] ?? firstAlternate?.configDir ?? '')
+                  }}
+                >
+                  Add Project…
+                </button>
+                <span className={styles.inlineHint}>
+                  {claudeProfiles.length === 0
+                    ? 'No Claude profiles found.'
+                    : `Found: ${claudeProfiles.map((profile) => profile.label).join(', ')}`}
+                </span>
               </div>
             </div>
           </div>}

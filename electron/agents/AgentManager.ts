@@ -4,10 +4,11 @@ import { randomUUID } from 'crypto'
 import { basename } from 'path'
 import { GitService } from '../git/GitService'
 import { SessionCatalog } from '../sessions/SessionCatalog'
+import type { ClaudeProfileResolver } from '../sessions/claudeProfiles'
 import { CodexSessionCatalog } from '../sessions/CodexSessionCatalog'
 import { getProvider, getAllProviders } from './providers'
 import { wrapWithShell, type ShellConfig } from './shellWrapper'
-import { buildAgentEnv } from './agentEnv'
+import { buildAgentEnv, claudeProfileEnv } from './agentEnv'
 import { MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
 import { detectLatestModelFromTerminalOutput } from '@shared/terminalModelDetection'
 import type { PersistedWorkspaceAgent } from '../workspace/WorkspaceStore'
@@ -74,6 +75,13 @@ export class AgentManager extends EventEmitter {
 
   setShellConfigProvider(provider: () => ShellConfig): void {
     this.shellConfigProvider = provider
+  }
+
+  // Claude profile (CLAUDE_CONFIG_DIR) for an agent; null keeps Hydra's own env.
+  private claudeProfileResolver: ClaudeProfileResolver = () => null
+
+  setClaudeProfileResolver(resolver: ClaudeProfileResolver): void {
+    this.claudeProfileResolver = resolver
   }
 
   constructor(
@@ -439,6 +447,7 @@ export class AgentManager extends EventEmitter {
     const rawArgs = this.buildArgs(managed.state)
 
     const ptyEnv = buildAgentEnv({
+      ...(managed.state.provider === 'claude' ? claudeProfileEnv(this.claudeProfileResolver(managed.state.projectDir, managed.state.sessionId)) : {}),
       TERM: 'xterm-256color',
       FORCE_COLOR: '1'
     })

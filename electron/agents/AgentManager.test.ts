@@ -451,4 +451,29 @@ describe('AgentManager', () => {
     expect(extra.status).toBe('running')
     expect(manager.activeCount()).toBe(MAX_CONCURRENT_AGENTS_HARD_LIMIT)
   })
+
+  it('starts claude agents with the resolved Claude profile', async () => {
+    const manager = new AgentManager()
+    const resolver = vi.fn().mockReturnValue('/home/me/.claude-work')
+    manager.setClaudeProfileResolver(resolver)
+
+    await manager.create(basePayload)
+
+    expect(resolver).toHaveBeenCalledWith('/tmp/project', null)
+    const env = spawnMock.mock.calls[0][2].env as Record<string, string>
+    expect(env.CLAUDE_CONFIG_DIR).toBe('/home/me/.claude-work')
+  })
+
+  it('does not apply Claude profiles to other providers', async () => {
+    const manager = new AgentManager()
+    const resolver = vi.fn().mockReturnValue('/home/me/.claude-work')
+    manager.setClaudeProfileResolver(resolver)
+
+    await manager.create({ ...basePayload, provider: 'codex', model: 'gpt-5.3-codex' })
+
+    expect(resolver).not.toHaveBeenCalled()
+    const env = spawnMock.mock.calls[0][2].env as Record<string, string>
+    expect(env.CLAUDE_CONFIG_DIR).toBe(process.env.CLAUDE_CONFIG_DIR)
+  })
 })
+

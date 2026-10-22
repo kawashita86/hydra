@@ -19,9 +19,12 @@ export const PARENT_SESSION_ENV_VARS = [
   'CLAUDE_CODE_MESSAGING_TOKEN'
 ] as const
 
-/** Environment for a spawned agent CLI: Hydra's env minus parent-session markers, plus overrides. */
+/**
+ * Environment for a spawned agent CLI: Hydra's env minus parent-session markers,
+ * plus overrides. An override set to `undefined` removes that variable.
+ */
 export function buildAgentEnv(
-  overrides: Record<string, string> = {},
+  overrides: Record<string, string | undefined> = {},
   baseEnv: NodeJS.ProcessEnv = process.env
 ): Record<string, string> {
   const env: Record<string, string> = {}
@@ -29,5 +32,18 @@ export function buildAgentEnv(
     if (value !== undefined) env[key] = value
   }
   for (const key of PARENT_SESSION_ENV_VARS) delete env[key]
-  return { ...env, ...overrides }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === undefined) delete env[key]
+    else env[key] = value
+  }
+  return env
+}
+
+/**
+ * Env overrides that select a Claude profile: a config dir sets `CLAUDE_CONFIG_DIR`,
+ * `''` clears it so the default `~/.claude` is used, and `null` leaves Hydra's env as is.
+ */
+export function claudeProfileEnv(configDir: string | null): Record<string, string | undefined> {
+  if (configDir === null) return {}
+  return { CLAUDE_CONFIG_DIR: configDir || undefined }
 }

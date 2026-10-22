@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, type Dirent } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
 import type { ProviderId } from '@shared/types'
-import { discoverClaudeProjectsDirs } from './SessionCatalog'
+import { discoverClaudeProjectsDirs } from './claudeProfiles'
 
 export interface TranscriptMessage {
   role: 'user' | 'assistant'

@@ -189,6 +189,19 @@ export interface AppConfig {
   gitPanelDisplayMode: PanelDisplayMode
   /** Display mode for the Editor panel (Cmd+E). */
   editorPanelDisplayMode: PanelDisplayMode
+  // ── Claude profiles ──────────────────────────────────────────────────────
+  /**
+   * Claude Code profile (`CLAUDE_CONFIG_DIR`) per project directory. Subfolders
+   * inherit; the longest matching path wins. `''` forces the default profile.
+   */
+  claudeProfileByProject: Record<string, string>
+}
+
+/** A Claude Code config dir found on this machine (`~/.claude` or `~/.claude-<name>`). */
+export interface ClaudeProfile {
+  configDir: string
+  label: string
+  isDefault: boolean
 }
 
 export const MAX_CONCURRENT_AGENTS_HARD_LIMIT = 10
@@ -228,7 +241,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   freeTerminalIdleTimeoutMinutes: 60,
   freeTerminalScrollbackLines: 5000,
   gitPanelDisplayMode: 'overlay',
-  editorPanelDisplayMode: 'overlay'
+  editorPanelDisplayMode: 'overlay',
+  claudeProfileByProject: {}
 }
 
 // ── IPC Channels ─────────────────────────────────────────────────────────────
@@ -270,6 +284,7 @@ export const IPC = {
 
   // Dialog
   DIALOG_SELECT_DIR: 'dialog:select-dir',
+  CLAUDE_PROFILES_LIST: 'claude:profiles-list',
   FS_LIST_DIRS: 'fs:list-dirs',
 
   // Shell

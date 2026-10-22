@@ -11,6 +11,7 @@ import type {
   ProviderId,
   ProviderModelOption,
   ClaudeSessionSummary,
+  ClaudeProfile,
   ListClaudeSessionsOptions,
   HeadlessRun,
   ListHeadlessRunsOptions,
@@ -134,6 +135,10 @@ const hydraApi = {
     ipcRenderer.invoke(IPC.DIALOG_SELECT_DIR),
   listDirectories: (query: string): Promise<DirSuggestion[]> =>
     ipcRenderer.invoke(IPC.FS_LIST_DIRS, query),
+
+  // Claude profiles
+  listClaudeProfiles: (): Promise<ClaudeProfile[]> =>
+    ipcRenderer.invoke(IPC.CLAUDE_PROFILES_LIST),
 
   // Shell
   openInEditor: (dir: string): Promise<boolean> =>

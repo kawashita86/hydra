@@ -74,12 +74,16 @@ Toggle between views with `Cmd+\` on macOS or `Ctrl+\` on Windows/Linux.
 
 ### Session Management
 
-Hydra imports session history from your Claude sessions directory (typically `~/.claude/projects`) on startup and lets you resume any previous Claude session from the New Agent dialog.
+Hydra imports session history from your Claude sessions directories on startup and lets you resume any previous Claude session from the New Agent dialog. Every Claude Code profile is scanned: `~/.claude`, `$CLAUDE_CONFIG_DIR`, and any `~/.claude-<name>`.
 
 - Filter sessions by age (default: last 7 days), project prefix, or search query
 - Hidden session management
 - Automatic `sessionId` discovery for reliable resume
 - Configurable import limits
+
+### Claude Profiles
+
+If you run several Claude accounts side by side (e.g. `CLAUDE_CONFIG_DIR=~/.claude-work claude`), pick which profile each project uses, either from the profile chip on a project row in the sidebar or in **Settings → Claude Profiles**. Subfolders inherit the nearest mapped parent, and a resumed session always reopens in the profile that saved it.
 
 ### MCP Manager Agent
 

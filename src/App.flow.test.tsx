@@ -155,7 +155,8 @@ const baseConfig: AppConfig = {
   freeTerminalIdleTimeoutMinutes: 30,
   freeTerminalScrollbackLines: 5000,
   gitPanelDisplayMode: 'overlay',
-  editorPanelDisplayMode: 'overlay'
+  editorPanelDisplayMode: 'overlay',
+  claudeProfileByProject: {}
 }
 
 let currentConfig: AppConfig = { ...baseConfig }
