@@ -93,7 +93,12 @@ vi.mock('./components/GridView/GridView', () => ({
 }))
 
 vi.mock('./components/Overview/OverviewView', () => ({
-  OverviewView: () => <div>overview-view</div>
+  OverviewView: (props: { onJumpToAgent: (agentId: string) => void }) => (
+    <div>
+      overview-view
+      <button onClick={() => props.onJumpToAgent('agent-jump')}>jump-agent</button>
+    </div>
+  )
 }))
 
 vi.mock('./components/Settings/SettingsPanel', () => ({
@@ -420,5 +425,19 @@ describe('App flow behavior', () => {
     await screen.findByText('chat-view')
     fireEvent.keyDown(window, { key: 'O', ctrlKey: true, shiftKey: true })
     expect(currentViewMode).toBe('overview')
+  })
+
+  it('jumps from the Overview to an agent in the Chat view', async () => {
+    window.localStorage.setItem('hydra:workspace-ui:v1', JSON.stringify({ viewMode: 'overview' }))
+    currentViewMode = 'overview'
+    setupViewModeMock()
+    const state = buildAgentsState()
+    mockUseAgents.mockReturnValue(state)
+    render(<App />)
+
+    fireEvent.click(await screen.findByText('jump-agent'))
+
+    expect(state.setSelectedAgentId).toHaveBeenCalledWith('agent-jump')
+    expect(currentViewMode).toBe('chat')
   })
 })

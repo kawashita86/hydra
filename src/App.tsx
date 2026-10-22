@@ -363,6 +363,15 @@ export default function App() {
     showYoloConfirm
   ])
 
+  // Same effect as clicking the agent in the sidebar; the chat-mode effect below selects its project.
+  const handleJumpToAgent = useCallback(
+    (agentId: string) => {
+      setSelectedAgentId(agentId)
+      setViewMode('chat')
+    },
+    [setSelectedAgentId, setViewMode]
+  )
+
   const executeCommand = useCallback(
     (commandId: HydraCommandId, argument?: string): boolean => {
       switch (commandId) {
@@ -809,6 +818,7 @@ export default function App() {
             />
           ) : renderedViewMode === 'overview' ? (
             <OverviewView
+              onJumpToAgent={handleJumpToAgent}
               onOpenNewAgent={() => {
                 void handleOpenNewAgent()
               }}

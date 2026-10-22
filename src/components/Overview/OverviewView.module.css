@@ -235,3 +235,11 @@
 .primaryBtn:hover {
   background: var(--color-accent-hover);
 }
+
+.needsBody {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-3);
+}

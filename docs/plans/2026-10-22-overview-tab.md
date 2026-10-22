@@ -13,7 +13,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 2 — Claude Code session registry reader
 - [x] Step 3 — `OverviewTracker` in the daemon, and IPC down to the renderer
 - [x] Step 4 — Third view: Grid | Chat | Overview
-- [ ] Step 5 — Needs you panel, counts and Jump
+- [x] Step 5 — Needs you panel, counts and Jump
 - [ ] Step 6 — What a waiting session asks (transcript tail)
 - [ ] Step 7 — Sessions card: List, Repos, Board and details drawer
 - [ ] Step 8 — History: events and samples, kept on disk

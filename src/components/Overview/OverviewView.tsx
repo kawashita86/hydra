@@ -3,12 +3,19 @@ import { computeCounts } from '@shared/overview/status'
 import type { OverviewSession, OverviewStatus } from '@shared/overview/types'
 import { useOverview } from '@/hooks/useOverview'
 import { Card, EmptyState } from './Card'
+import { CountsRow } from './CountsRow'
+import { projectName } from './format'
+import { NeedsYouPanel } from './NeedsYouPanel'
 import styles from './OverviewView.module.css'
 
 const FILTER_STORAGE_KEY = 'hydra.overview.projectFilter'
 const ALL_PROJECTS = ''
 
+export { projectName }
+
 interface OverviewViewProps {
+  /** Selects the agent (and its project) and switches to the Chat view. */
+  onJumpToAgent?: (agentId: string) => void
   onOpenNewAgent?: () => void
 }
 
@@ -29,11 +36,6 @@ function writeStoredFilter(value: string): void {
   }
 }
 
-export function projectName(projectDir: string): string {
-  const parts = projectDir.split(/[\\/]+/).filter(Boolean)
-  return parts[parts.length - 1] ?? projectDir
-}
-
 const STATUS_LABEL: Record<OverviewStatus, string> = {
   'needs-you': 'Needs you',
   working: 'Working',
@@ -51,7 +53,7 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-export function OverviewView({ onOpenNewAgent }: OverviewViewProps) {
+export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProps) {
   const { snapshot, loading, error, now } = useOverview()
   const [storedFilter, setStoredFilter] = useState<string>(readStoredFilter)
 
@@ -116,6 +118,8 @@ export function OverviewView({ onOpenNewAgent }: OverviewViewProps) {
   }
 
   const needsYou = sessions.filter((s) => s.status === 'needs-you')
+  const multipleProviders = new Set(allSessions.map((s) => s.provider)).size > 1
+  const jump = (agentId: string) => onJumpToAgent?.(agentId)
 
   return (
     <div className={styles.overview}>
@@ -148,18 +152,15 @@ export function OverviewView({ onOpenNewAgent }: OverviewViewProps) {
 
       <div className={styles.grid}>
         <Card title="Needs you" area="needs" meta={counts.needsYou > 0 ? counts.needsYou : undefined}>
-          {needsYou.length === 0 ? (
-            <EmptyState>Nothing needs you</EmptyState>
-          ) : (
-            <ul className={styles.list}>
-              {needsYou.map((s) => (
-                <li key={s.agentId} className={styles.row}>
-                  <span className={styles.rowName}>{s.name}</span>
-                  <span className={styles.rowMeta}>{projectName(s.projectDir)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className={styles.needsBody}>
+            <NeedsYouPanel
+              sessions={needsYou}
+              now={now}
+              showProvider={multipleProviders}
+              onJumpToAgent={jump}
+            />
+            <CountsRow counts={counts} />
+          </div>
         </Card>
 
         <Card title="Last hour" area="lastHour">
