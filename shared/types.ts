@@ -264,6 +264,10 @@ export const IPC = {
   AGENT_MODEL_SET: 'agent:model-set',
   AGENT_GET_BUFFER: 'agent:get-buffer',
 
+  // Overview
+  OVERVIEW_GET: 'overview:get',
+  OVERVIEW_SNAPSHOT: 'overview:snapshot',
+
   // Config
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',

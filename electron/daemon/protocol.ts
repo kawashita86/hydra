@@ -17,6 +17,7 @@ import type {
   McpServerStatus,
   FreeTerminalLayout
 } from '@shared/types'
+import type { OverviewSnapshot } from '@shared/overview/types'
 
 // ── REST API ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ export type WsServerMessage =
   | { type: 'agent:output'; payload: AgentOutputPayload }
   | { type: 'agent:status'; payload: AgentStatusPayload }
   | { type: 'agent:waiting'; payload: { agentId: string } }
+  | { type: 'overview:snapshot'; payload: OverviewSnapshot }
   | { type: 'notification'; payload: HydraNotification }
   | { type: 'config:changed'; payload: AppConfig }
   | { type: 'headless:event'; payload: { runId: string; data: string } }

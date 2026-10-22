@@ -270,6 +270,10 @@ export function registerIpcHandlers(
     return daemonClient ? daemonClient.list() : []
   })
 
+  ipcMain.handle(IPC.OVERVIEW_GET, async () => {
+    return getDaemonClient().getOverview()
+  })
+
   ipcMain.handle(IPC.AGENT_YOLO_TOGGLE, async (_event, agentId: string, yolo: boolean) => {
     return getDaemonClient().toggleYolo(agentIdSchema.parse(agentId), z.boolean().parse(yolo))
   })

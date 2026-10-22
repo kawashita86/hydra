@@ -295,6 +295,23 @@ describe('AgentManager', () => {
     expect(statuses).not.toContain('errored')
   })
 
+  it('tracks the exit code in getActivity and resets it on restart', async () => {
+    const manager = new AgentManager()
+    const created = await manager.create({ ...basePayload, name: 'activity-check' })
+
+    expect(manager.getActivity(created.id)).toEqual({ lastOutputAt: 0, lastExitCode: null })
+    expect(manager.getActivity('missing')).toBeNull()
+
+    createdPtys[0].emitData('hello')
+    expect(manager.getActivity(created.id)?.lastOutputAt).toBeGreaterThan(0)
+
+    createdPtys[0].emitExit({ exitCode: 3 })
+    expect(manager.getActivity(created.id)?.lastExitCode).toBe(3)
+
+    manager.restart(created.id)
+    expect(manager.getActivity(created.id)).toEqual({ lastOutputAt: 0, lastExitCode: null })
+  })
+
   it('enforces hard cap for concurrently active agents', async () => {
     const manager = new AgentManager()
 

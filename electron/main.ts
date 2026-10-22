@@ -220,6 +220,12 @@ app.whenReady().then(async () => {
       })
     })
 
+    daemonClient.on('overview:snapshot', (snapshot) => {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        win.webContents.send(IPC.OVERVIEW_SNAPSHOT, snapshot)
+      })
+    })
+
     daemonClient.on('notification', (notification) => {
       notificationService.push(notification)
     })

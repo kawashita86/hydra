@@ -4,6 +4,8 @@ import { unlinkSync, existsSync } from 'fs'
 import { homedir } from 'os'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
 import { AgentManager } from '../agents/AgentManager'
+import type { OverviewTracker } from '../overview/OverviewTracker'
+import type { OverviewSnapshot } from '@shared/overview/types'
 import { MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
 import type { ConfigStore } from '../config/ConfigStore'
 import type { SessionCatalog } from '../sessions/SessionCatalog'
@@ -68,6 +70,7 @@ interface DaemonServerOptions {
   notificationService: DaemonNotificationService
   mcpServer: HydraMcpServer | null
   skillScanner: SkillScanner
+  overviewTracker: OverviewTracker
   onShutdown: () => void
 }
 
@@ -85,6 +88,7 @@ export class DaemonServer {
   private readonly notificationService: DaemonNotificationService
   private readonly mcpServer: HydraMcpServer | null
   private readonly skillScanner: SkillScanner
+  private readonly overviewTracker: OverviewTracker
   private readonly onShutdown: () => void
   private readonly startedAt = Date.now()
   private testPty: IPty | null = null
@@ -105,6 +109,7 @@ export class DaemonServer {
     this.notificationService = options.notificationService
     this.mcpServer = options.mcpServer
     this.skillScanner = options.skillScanner
+    this.overviewTracker = options.overviewTracker
     this.onShutdown = options.onShutdown
   }
 
@@ -137,6 +142,10 @@ export class DaemonServer {
       this.flushPendingAgentOutput()
       this.persistWorkspace()
       this.broadcast({ type: 'agent:status', payload })
+    })
+
+    this.overviewTracker.on('snapshot', (snapshot: OverviewSnapshot) => {
+      this.broadcast({ type: 'overview:snapshot', payload: snapshot })
     })
 
     this.agentManager.on('agent_waiting', (payload: { agentId: string }) => {
@@ -408,6 +417,10 @@ export class DaemonServer {
       }
 
       // ── Agents ──────────────────────────────────────────────────────────
+      if (method === 'GET' && path === '/overview') {
+        return this.json(res, 200, await this.overviewTracker.getSnapshot())
+      }
+
       if (method === 'GET' && path === '/agents') {
         return this.json(res, 200, this.agentManager.list())
       }

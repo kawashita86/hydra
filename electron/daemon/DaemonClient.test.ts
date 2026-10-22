@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const wsConstructor = vi.fn()
+const wsHandlers = new Map<string, (...args: any[]) => void>()
 const createConnectionMock = vi.fn((_path: string) => ({}) as any)
 
 vi.mock('ws', () => {
@@ -12,7 +13,8 @@ vi.mock('ws', () => {
       wsConstructor(address, options)
     }
 
-    on(): this {
+    on(event: string, handler: (...args: any[]) => void): this {
+      wsHandlers.set(event, handler)
       return this
     }
 
@@ -33,6 +35,7 @@ import { DaemonClient } from './DaemonClient'
 describe('DaemonClient websocket connection', () => {
   beforeEach(() => {
     wsConstructor.mockReset()
+    wsHandlers.clear()
     createConnectionMock.mockReset()
     createConnectionMock.mockReturnValue({} as any)
   })
@@ -54,5 +57,17 @@ describe('DaemonClient websocket connection', () => {
     const options = wsConstructor.mock.calls[0]?.[1] as { createConnection: () => unknown }
     options.createConnection()
     expect(createConnectionMock).toHaveBeenCalledWith(socketPath)
+  })
+
+  it('relays overview snapshots from the websocket', () => {
+    const client = new DaemonClient('/tmp/daemon.sock')
+    const listener = vi.fn()
+    client.on('overview:snapshot', listener)
+    ;(client as any).connectWebSocket()
+
+    const snapshot = { at: 1, sessions: [], counts: { total: 0 } }
+    wsHandlers.get('message')?.(Buffer.from(JSON.stringify({ type: 'overview:snapshot', payload: snapshot })))
+
+    expect(listener).toHaveBeenCalledWith(snapshot)
   })
 })

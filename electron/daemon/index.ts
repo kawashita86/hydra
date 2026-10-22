@@ -24,6 +24,10 @@ import { writeLockFile, removeLockFile } from './lock'
 import { HydraMcpServer } from '../mcp/McpServer'
 import { SkillScanner } from '../skills/SkillScanner'
 import { getDefaultModelForProvider } from '@shared/types'
+import { OverviewTracker } from '../overview/OverviewTracker'
+import { ClaudeRegistryReader } from '../overview/claudeRegistry'
+import { ProcessTableReader } from '../overview/processTree'
+import { discoverClaudeConfigDirs } from '../sessions/claudeProfiles'
 import { fixPath } from '../util/fix-path'
 
 // ── Parse CLI args ────────────────────────────────────────────────────────────
@@ -165,6 +169,7 @@ async function main(): Promise<void> {
     console.log('[daemon] Shutting down...')
     workspaceStore.setAgents(agentManager.exportWorkspaceAgents())
     agentManager.killAll()
+    overviewTracker.stop()
     mcpServer?.stop()
     server.stop()
     removeLockFile(lockPath)
@@ -173,6 +178,13 @@ async function main(): Promise<void> {
   }
 
   const skillScanner = new SkillScanner()
+
+  const overviewTracker = new OverviewTracker({
+    agentManager,
+    registryReader: new ClaudeRegistryReader(),
+    processTableReader: new ProcessTableReader(),
+    configDirs: () => discoverClaudeConfigDirs()
+  })
 
   const server = new DaemonServer({
     socketPath,
@@ -185,10 +197,12 @@ async function main(): Promise<void> {
     notificationService,
     mcpServer,
     skillScanner,
+    overviewTracker,
     onShutdown: shutdown
   })
 
   await server.start()
+  overviewTracker.start()
 
   // Write lock file
   writeLockFile(lockPath, {
