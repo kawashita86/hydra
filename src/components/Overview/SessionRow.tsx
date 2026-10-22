@@ -38,7 +38,7 @@ export function StatusFact({ session, now }: { session: OverviewSession; now: nu
   return (
     <span className={styles.statusCell}>
       <span className={styles.statusLine}>
-        <span className={`${styles.dot} ${styles[dotKey(session.status)]}`} aria-hidden="true" />
+        <span className={`${styles.dot} ${styles[dotKey(session)]}`} aria-hidden="true" />
         <span className={styles.statusText}>{statusLabel(session)}</span>
         <span className={styles.duration}>{formatDuration(now - session.statusSince, { compact: true })}</span>
       </span>

@@ -103,8 +103,9 @@ describe('NeedsYouPanel', () => {
     const { rerender } = render(
       <NeedsYouPanel sessions={[]} now={NOW} showProvider={false} onJumpToAgent={vi.fn()} />
     )
-    expect(screen.getByText('Nothing needs you')).toBeTruthy()
-    expect(screen.queryByText(/Last wait/)).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Nothing needs you' })).toBeTruthy()
+    expect(screen.getByText(/it will show here/)).toBeTruthy()
+    expect(screen.queryByText('Last wait')).toBeNull()
     rerender(
       <NeedsYouPanel
         sessions={[]}
@@ -114,6 +115,9 @@ describe('NeedsYouPanel', () => {
         lastWait={{ name: 'agent-z', waitedMs: 65_000, endedAt: NOW - 120_000 }}
       />
     )
-    expect(screen.getByText(/Last wait: agent-z, 1m 05s, ended 2m ago/)).toBeTruthy()
+    expect(screen.getByText('Last wait')).toBeTruthy()
+    expect(screen.getByText('1m 05s')).toBeTruthy()
+    expect(screen.getByText('agent-z')).toBeTruthy()
+    expect(screen.getByText(/answered at/)).toBeTruthy()
   })
 })

@@ -18,6 +18,9 @@
 }
 
 .label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -63,4 +66,15 @@
   outline: 2px solid var(--color-text-secondary);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+.dot {
+  display: inline-block;
+}
+
+.detail .dot {
+  width: 6px;
+  height: 6px;
+  margin-right: 3px;
+  vertical-align: 1px;
 }

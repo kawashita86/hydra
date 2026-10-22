@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { PROVIDER_LABELS } from '@shared/types'
 import type { OverviewSession, WaitingReason } from '@shared/overview/types'
-import { formatDuration, projectName } from './format'
-import { EmptyState } from './Card'
+import { formatDuration, formatMinute, projectName } from './format'
 import styles from './NeedsYouPanel.module.css'
 
 /** The last wait that ended, from the events history. */
@@ -101,25 +100,36 @@ function Item({
   )
 }
 
+function AllClear({ lastWait, now }: { lastWait?: LastWait; now: number }) {
+  return (
+    <div className={styles.clear}>
+      <div className={styles.clearMain}>
+        <h3 className={styles.clearTitle}>
+          <span className={styles.clearIcon} aria-hidden="true" />
+          Nothing needs you
+        </h3>
+        <p className={styles.clearText}>When an agent stops to ask for something, it will show here.</p>
+      </div>
+      {lastWait && (
+        <div className={styles.lastWait}>
+          <span className={styles.lastWaitLabel}>Last wait</span>
+          <span className={styles.lastWaitValue}>{formatDuration(lastWait.waitedMs)}</span>
+          <span className={styles.lastWaitWho}>
+            <strong>{lastWait.name}</strong>, answered at {formatMinute(lastWait.endedAt, now)}
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function NeedsYouPanel({ sessions, now, showProvider, onJumpToAgent, onOpenDetails, lastWait }: NeedsYouPanelProps) {
   const sorted = useMemo(
     () => [...sessions].sort((a, b) => a.statusSince - b.statusSince),
     [sessions]
   )
 
-  if (sorted.length === 0) {
-    return (
-      <>
-        <EmptyState>Nothing needs you</EmptyState>
-        {lastWait && (
-          <p className={styles.lastWait}>
-            Last wait: {lastWait.name}, {formatDuration(lastWait.waitedMs)}, ended{' '}
-            {formatDuration(now - lastWait.endedAt, { compact: true })} ago
-          </p>
-        )}
-      </>
-    )
-  }
+  if (sorted.length === 0) return <AllClear lastWait={lastWait} now={now} />
 
   return (
     <ul className={styles.list}>

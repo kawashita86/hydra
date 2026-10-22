@@ -15,9 +15,10 @@ export function statusLabel(session: OverviewSession): string {
   return session.stale ? 'Idle (stale)' : STATUS_LABEL[session.status]
 }
 
-/** CSS-module class suffix of a status dot. */
-export function dotKey(status: OverviewStatus): string {
-  return `dot_${status.replace('-', '_')}`
+/** CSS-module class suffix of a session's status dot; stale idle sessions get their own. */
+export function dotKey(session: Pick<OverviewSession, 'status' | 'stale'>): string {
+  if (session.status === 'idle' && session.stale) return 'dot_stale'
+  return `dot_${session.status.replace('-', '_')}`
 }
 
 /** `Sonnet`, or `Claude · Sonnet` when the snapshot has more than one provider. */

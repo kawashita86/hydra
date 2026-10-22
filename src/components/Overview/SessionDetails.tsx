@@ -164,7 +164,7 @@ export function SessionDetails({
         <dl className={styles.facts}>
           <Fact label="Status">
             <span className={styles.statusLine}>
-              <span className={`${rowStyles.dot} ${rowStyles[dotKey(shown.status)]}`} aria-hidden="true" />
+              <span className={`${rowStyles.dot} ${rowStyles[dotKey(shown)]}`} aria-hidden="true" />
               {statusLabel(shown)}
             </span>
             <span className={styles.sub}>

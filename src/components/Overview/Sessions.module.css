@@ -38,11 +38,13 @@
   background: var(--color-status-idle);
 }
 
+/* Filled dots are live states; hollow rings are starting up or gone stale. */
 .dot_needs_you { background: var(--color-status-starting); }
 .dot_working { background: var(--color-status-running); }
 .dot_idle { background: var(--color-status-idle); }
-.dot_starting { background: var(--color-status-starting); }
-.dot_finished { background: var(--color-text-muted); }
+.dot_stale { background: transparent; box-shadow: inset 0 0 0 2px var(--color-status-idle); }
+.dot_starting { background: transparent; box-shadow: inset 0 0 0 2px var(--color-status-starting); }
+.dot_finished { background: var(--color-status-finished); }
 .dot_failed { background: var(--color-status-error); }
 
 .mono {
@@ -124,6 +126,14 @@
 
 /* ── List and Repos ────────────────────────────────────────────────────── */
 
+/* Long lists scroll inside the card instead of stretching the page. */
+.listWrap,
+.boardWrap {
+  max-height: min(560px, 65vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .listWrap {
   container-type: inline-size;
   display: flex;
@@ -137,10 +147,15 @@
 }
 
 .groupHeading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface);
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
   margin: 0 0 2px;
+  padding: 2px 0;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;

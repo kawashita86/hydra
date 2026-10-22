@@ -90,7 +90,7 @@
 .s_working { fill: var(--color-status-running); background: var(--color-status-running); }
 .s_idle { fill: var(--color-status-idle); background: var(--color-status-idle); }
 .s_starting { fill: var(--color-status-starting); background: var(--color-status-starting); opacity: 0.55; }
-.s_finished { fill: var(--color-text-muted); background: var(--color-text-muted); }
+.s_finished { fill: var(--color-status-finished); background: var(--color-status-finished); }
 .s_failed { fill: var(--color-status-error); background: var(--color-status-error); }
 
 .barNeeds { fill: var(--color-status-starting); }
