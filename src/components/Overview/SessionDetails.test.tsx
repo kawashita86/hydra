@@ -51,6 +51,31 @@ describe('SessionDetails', () => {
     vi.useRealTimers()
   })
 
+  it('tells how often the session waited on the user in the last hour', async () => {
+    const { rerender } = render(
+      <SessionDetails
+        agentId="a1"
+        session={session()}
+        now={NOW}
+        onClose={vi.fn()}
+        onJumpToAgent={vi.fn()}
+        waited={{ count: 3, ms: 252_000, from: NOW - 3_600_000 }}
+      />
+    )
+    expect(await screen.findByText('Waited 3 times, total 4m 12s', { exact: false })).toBeTruthy()
+    rerender(
+      <SessionDetails
+        agentId="a1"
+        session={session()}
+        now={NOW}
+        onClose={vi.fn()}
+        onJumpToAgent={vi.fn()}
+        waited={{ count: 0, ms: 0, from: NOW - 3_600_000 }}
+      />
+    )
+    expect(screen.queryByText(/Waited/)).toBeNull()
+  })
+
   it('shows the facts, tokens and last message', async () => {
     render(
       <SessionDetails agentId="a1" session={session()} now={NOW} onClose={vi.fn()} onJumpToAgent={vi.fn()} />

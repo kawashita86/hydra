@@ -1,9 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import type { HistoryAgent } from '@shared/overview/types'
+import type { HistoryAgent, WaitingNow } from '@shared/overview/types'
+import { lastHourWaits } from '@shared/overview/waits'
 import type { CountKey } from '@shared/overview/buckets'
 import { computeCounts } from '@shared/overview/status'
 import { useOverview } from '@/hooks/useOverview'
 import { useOverviewHistory } from '@/hooks/useOverviewHistory'
+import { useOverviewWaits } from '@/hooks/useOverviewWaits'
 import { Card, EmptyState } from './Card'
 import { CountHistory } from './CountHistory'
 import { CountsRow } from './CountsRow'
@@ -15,6 +17,8 @@ import { NeedsYouPanel } from './NeedsYouPanel'
 import { OwnEvents } from './OwnEvents'
 import { SessionDetails } from './SessionDetails'
 import { SessionsCard } from './SessionsCard'
+import { WaitedOnYou } from './WaitedOnYou'
+import { WaitsCard } from './WaitsCard'
 import { OwnTimeline, TimelineCard } from './TimelineCard'
 import styles from './OverviewView.module.css'
 
@@ -54,6 +58,7 @@ function plural(n: number, one: string, many: string): string {
 export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProps) {
   const { snapshot, loading, error, now } = useOverview()
   const { history } = useOverviewHistory()
+  const { ledger } = useOverviewWaits()
   const [storedFilter, setStoredFilter] = useState<string>(readStoredFilter)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [chartKey, setChartKey] = useState<CountKey | null>(null)
@@ -109,6 +114,34 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
         ? undefined
         : (agentId: string) => historyAgents?.[agentId]?.projectDir === filter,
     [filter, historyAgents]
+  )
+  const waitingNow = useMemo<WaitingNow[]>(
+    () =>
+      allSessions
+        .filter((s) => s.status === 'needs-you')
+        .map((s) => ({ agentId: s.agentId, name: s.name, since: s.statusSince })),
+    [allSessions]
+  )
+  // The ledger names the project of every agent that waited, also those that are gone.
+  const waitsFilter = useMemo(() => {
+    if (filter === ALL_PROJECTS) return undefined
+    const dirs = new Map<string, string>()
+    for (const t of ledger?.transitions ?? []) dirs.set(t.agentId, t.projectDir)
+    for (const s of allSessions) dirs.set(s.agentId, s.projectDir)
+    return (agentId: string) => dirs.get(agentId) === filter
+  }, [filter, ledger, allSessions])
+  const lastStart = ledger?.starts[ledger.starts.length - 1]
+  // Once a second: an open wait grows with the clock.
+  const waited = useMemo(
+    () =>
+      ledger
+        ? lastHourWaits(ledger.transitions, waitingNow, ledger.spans, now, {
+            starts: ledger.starts,
+            agentFilter: waitsFilter,
+            from: lastStart
+          })
+        : null,
+    [ledger, waitingNow, now, waitsFilter, lastStart]
   )
   const historyPoints = history?.points
   const historyStarts = history?.starts
@@ -171,6 +204,8 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
   const needsYou = sessions.filter((s) => s.status === 'needs-you')
   const multipleProviders = new Set(allSessions.map((s) => s.provider)).size > 1
   const jump = (agentId: string) => onJumpToAgent?.(agentId)
+  const selectedBar = waited?.bars.find((bar) => bar.agentId === selectedId)
+  const selectedWaits = selectedBar && waited ? { count: selectedBar.count, ms: selectedBar.ms, from: waited.from } : undefined
 
   return (
     <div className={styles.overview} ref={rootRef}>
@@ -219,6 +254,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
               onOpenDetails={openDetails}
               lastWait={lastWait}
             />
+            {waited && <WaitedOnYou bars={waited.bars} from={waited.from} unmeasuredMs={waited.unmeasuredMs} />}
             <CountsRow counts={counts} onOpenChart={toggleChart} openChart={chartKey} />
             {chartKey && (
               <CountHistory
@@ -261,9 +297,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           agentFilter={agentFilter}
         />
 
-        <Card title="Waits" area="waits">
-          <EmptyState>No waits recorded yet</EmptyState>
-        </Card>
+        <WaitsCard ledger={ledger} waitingNow={waitingNow} now={now} agentFilter={waitsFilter} />
       </div>
 
       {selectedId && (
@@ -274,6 +308,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           now={now}
           onClose={closeDetails}
           onJumpToAgent={jump}
+          waited={selectedWaits}
           ownEvents={<OwnEvents events={history?.events ?? []} agentId={selectedId} now={now} />}
           timelineRow={
             <OwnTimeline

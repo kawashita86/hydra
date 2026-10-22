@@ -22,6 +22,8 @@ export interface SessionDetailsProps {
   ownEvents?: ReactNode
   /** Filled by Step 9: this session's row of the timeline. Nothing is rendered when absent. */
   timelineRow?: ReactNode
+  /** How often this session waited on the user in the last hour (the Waited on you window). Nothing is shown when `count` is 0 or absent. */
+  waited?: { count: number; ms: number; from: number }
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -72,7 +74,8 @@ export function SessionDetails({
   onClose,
   onJumpToAgent,
   ownEvents,
-  timelineRow
+  timelineRow,
+  waited
 }: SessionDetailsProps) {
   // Keep the last known data when the agent disappears from the snapshot.
   const [known, setKnown] = useState<OverviewSession | undefined>(session)
@@ -202,6 +205,13 @@ export function SessionDetails({
             <Fact label="Commit">
               <code className={styles.inline}>{shown.commit}</code>
               <span className={styles.sub}>detached HEAD</span>
+            </Fact>
+          )}
+
+          {waited && waited.count > 0 && (
+            <Fact label="Waited on you">
+              Waited {waited.count === 1 ? 'once' : `${waited.count} times`}, total {formatDuration(waited.ms)}
+              <span className={styles.sub}>since {formatClock(waited.from, now)}</span>
             </Fact>
           )}
 

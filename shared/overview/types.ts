@@ -128,14 +128,91 @@ export interface HistoryResponse {
   agents: Record<string, HistoryAgent>
 }
 
+/** A move of an agent into (`in`) or out of (`out`) `needs-you`. */
+export interface WaitTransition {
+  agentId: string
+  name: string
+  projectDir: string
+  at: number
+  direction: 'in' | 'out'
+}
+
+/** A stretch of time the daemon was measuring: points no more than 15 s apart, with no daemon start between. */
+export interface MeasuredSpan {
+  start: number
+  end: number
+}
+
+/**
+ * What the wait totals are worked out from: the last 9 days of moves into and
+ * out of `needs-you` and of measured stretches, oldest first.
+ */
+export interface WaitLedgerData {
+  transitions: WaitTransition[]
+  spans: MeasuredSpan[]
+  /** Each start of the daemon, oldest first; a start ends a measured stretch. */
+  starts: number[]
+}
+
+/** Answer of `GET /overview/waits`. The renderer works the totals out, so the project filter and the clock stay client-side. */
+export interface WaitsResponse {
+  ledger: WaitLedgerData
+}
+
+/** An agent that needs the user now. */
+export interface WaitingNow {
+  agentId: string
+  name: string
+  /** Epoch ms when the wait began (the session's `statusSince`). */
+  since: number
+}
+
+/** How long agents waited in a stretch of time. Only measured time counts. */
+export interface WaitFigure {
+  ms: number
+  /** Waits that took measured time in the stretch. */
+  count: number
+  /** Measured time in the stretch. */
+  measuredMs: number
+  /** Part of `ms` that belongs to waits still open. */
+  openMs: number
+}
+
+export interface WaitDayTotal extends WaitFigure {
+  /** Local day, `2026-10-22`. */
+  day: string
+  /** False when nothing was measured that day. */
+  measured: boolean
+}
+
+export interface LongestWait {
+  agentId: string
+  name: string
+  ms: number
+  count: number
+  waitingNow: boolean
+}
+
 /** Time agents waited on the user (Step 11). */
 export interface WaitTotals {
-  todayMs: number
-  weekMs: number
-  /** One entry per local day, oldest first. `measured` is false when nothing was watched. */
-  byDay: { day: string; ms: number; measured: boolean }[]
-  /** Longest waiters first. */
-  longest: { agentId: string; name: string; ms: number }[]
+  today: WaitFigure
+  /** Today and the six days before it. */
+  week: WaitFigure
+  /** The 7 days, oldest first. */
+  byDay: WaitDayTotal[]
+  /** At most five each, longest first. */
+  longest: { today: LongestWait[]; week: LongestWait[] }
+}
+
+/** One bar of "Waited on you". */
+export interface WaitBar {
+  agentId: string
+  name: string
+  ms: number
+  /** How many waits took measured time in the window. */
+  count: number
+  /** The agent needs the user now. */
+  open: boolean
 }
 
 /** What the details drawer shows, read on demand from the transcript. */

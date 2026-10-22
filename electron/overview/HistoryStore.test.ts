@@ -392,6 +392,154 @@ describe('HistoryStore status deltas', () => {
   })
 })
 
+describe('HistoryStore wait ledger', () => {
+  const dayFile = (offsetDays: number): string => `v1-${new Date(T0 + offsetDays * DAY).toISOString().slice(0, 10)}.jsonl`
+  const full = (at: number, statuses = '{"a":"working"}') => `{"point":[${at},0,1,0,1,${statuses}]}`
+  const delta = (at: number) => `{"point":[${at},0,1,0,1,{},1]}`
+  const move = (at: number, from: string, to: string) =>
+    `{"event":{"id":"a@${at}:status","at":${at},"kind":"status","agentId":"a","name":"alpha","projectDir":"/w","from":"${from}","to":"${to}"}}`
+
+  it('seeds transitions and spans from delta points, breaking at gaps and at starts', () => {
+    const fs = new MemoryFs()
+    const t = T0 - 3 * DAY
+    fs.files.set(
+      dayFile(-3),
+      [
+        `{"start":${t}}`,
+        full(t),
+        delta(t + 5000),
+        delta(t + 10_000),
+        move(t + 10_000, 'working', 'needs-you'),
+        delta(t + 70_000), // 60 s gap: a new span
+        move(t + 72_000, 'needs-you', 'working'),
+        delta(t + 75_000),
+        `{"start":${t + 77_000}}`, // a start breaks the span however soon the next point comes
+        full(t + 78_000)
+      ].join('\n')
+    )
+    const { store } = setup(fs)
+    store.start()
+    const ledger = store.waits()
+    expect(ledger.spans).toEqual([
+      { start: t, end: t + 10_000 },
+      { start: t + 70_000, end: t + 75_000 },
+      { start: t + 78_000, end: t + 78_000 }
+    ])
+    expect(ledger.transitions.map((x) => [x.direction, x.at, x.agentId, x.name, x.projectDir])).toEqual([
+      ['in', t + 10_000, 'a', 'alpha', '/w'],
+      ['out', t + 72_000, 'a', 'alpha', '/w']
+    ])
+    expect(ledger.starts).toEqual([t, t + 77_000, T0])
+  })
+
+  it('joins a stretch that goes on in the next day\'s file', () => {
+    const fs = new MemoryFs()
+    const midnight = Date.parse('2026-10-20T00:00:00.000Z')
+    fs.files.set('v1-2026-10-19.jsonl', [`{"start":${midnight - 20_000}}`, full(midnight - 10_000), delta(midnight - 5000)].join('\n'))
+    fs.files.set('v1-2026-10-20.jsonl', [full(midnight + 2000), delta(midnight + 7000)].join('\n'))
+    const { store } = setup(fs)
+    store.start()
+    expect(store.waits().spans).toEqual([{ start: midnight - 10_000, end: midnight + 7000 }])
+  })
+
+  it('holds more than the rings: old events and points still reach the ledger', () => {
+    const fs = new MemoryFs()
+    const old = T0 - 2 * DAY
+    fs.files.set(
+      dayFile(-2),
+      [`{"start":${old}}`, full(old), delta(old + 5000), move(old + 5000, 'working', 'needs-you'), move(old + 9000, 'needs-you', 'idle'), delta(old + 10_000)].join('\n')
+    )
+    const recent: string[] = [`{"start":${T0 - 3 * 3600_000}}`]
+    for (let i = 0; i < MAX_POINTS + 10; i++) recent.push(i === 0 ? full(T0 - 3 * 3600_000 + 1) : delta(T0 - 3 * 3600_000 + 1 + i * 2))
+    for (let i = 0; i < MAX_EVENTS + 10; i++) recent.push(move(T0 - 3 * 3600_000 + 2 + i, 'working', 'idle'))
+    fs.files.set(dayFile(0), recent.join('\n'))
+    const { store } = setup(fs)
+    store.start()
+
+    const rings = store.query(0)
+    expect(rings.events).toHaveLength(MAX_EVENTS)
+    expect(rings.events.every((e) => e.at > old + DAY)).toBe(true)
+    expect(rings.since).toBeGreaterThan(old + DAY) // the rings begin where they did before
+
+    const ledger = store.waits()
+    expect(ledger.transitions.map((x) => [x.direction, x.at])).toEqual([
+      ['in', old + 5000],
+      ['out', old + 9000]
+    ])
+    expect(ledger.spans[0]).toEqual({ start: old, end: old + 10_000 })
+    // The recent run is one span although its older points were not kept in the ring.
+    expect(ledger.spans[1].start).toBe(T0 - 3 * 3600_000 + 1)
+    expect(ledger.spans[1].end).toBe(T0 - 3 * 3600_000 + 1 + (MAX_POINTS + 9) * 2)
+  })
+
+  it('skips malformed lines and the future', () => {
+    const fs = new MemoryFs()
+    fs.files.set(
+      dayFile(0),
+      ['not json', `{"point":[${T0 - 10_000},0,1,0,1,{"a":"working"}]}`, `{"point":[${T0 - 5000},0,1,0,1,{}`, `{"point":[${T0 + 3_600_000},0,1,0,1,{}]}`].join('\n')
+    )
+    const { store } = setup(fs)
+    store.start()
+    expect(store.waits().spans).toEqual([{ start: T0 - 10_000, end: T0 - 10_000 }])
+  })
+
+  it('is fed live: events become transitions and points extend the stretch', () => {
+    const { store } = setup(new MemoryFs())
+    store.start()
+    store.addPoint(point(T0 + 1000))
+    store.addEvents([
+      event(T0 + 2000, { from: 'working', to: 'needs-you' }),
+      event(T0 + 2500, { from: 'working', to: 'idle' }),
+      event(T0 + 3000, { kind: 'ended', from: 'needs-you' })
+    ])
+    store.addPoint(point(T0 + 6000))
+    store.addPoint(point(T0 + 11_000))
+    store.addPoint(point(T0 + 60_000)) // gap
+    const ledger = store.waits()
+    expect(ledger.spans).toEqual([
+      { start: T0 + 1000, end: T0 + 11_000 },
+      { start: T0 + 60_000, end: T0 + 60_000 }
+    ])
+    expect(ledger.transitions.map((x) => x.direction)).toEqual(['in', 'out'])
+    expect(ledger.starts).toEqual([T0])
+  })
+
+  it('does not join the first point of a run to the last of the previous one', () => {
+    const fs = new MemoryFs()
+    const first = setup(fs)
+    first.store.start()
+    first.store.addPoint(point(T0 + 1000))
+    first.store.stop()
+    const second = setup(fs, T0 + 3000)
+    second.store.start()
+    second.store.addPoint(point(T0 + 4000))
+    expect(second.store.waits().spans).toEqual([
+      { start: T0 + 1000, end: T0 + 1000 },
+      { start: T0 + 4000, end: T0 + 4000 }
+    ])
+  })
+
+  it('prunes what is older than 9 days, on restore and later', () => {
+    const fs = new MemoryFs()
+    const ancient = T0 - 10 * DAY
+    fs.files.set(
+      dayFile(-10),
+      [`{"start":${ancient}}`, full(ancient), delta(ancient + 5000), move(ancient + 5000, 'working', 'needs-you'), move(ancient + 8000, 'needs-you', 'idle')].join('\n')
+    )
+    const edge = T0 - 9 * DAY + 60_000
+    fs.files.set(dayFile(-9), [`{"start":${edge}}`, full(edge), delta(edge + 5000), move(edge + 2000, 'working', 'needs-you')].join('\n'))
+    const { store, setClock } = setup(fs)
+    store.start()
+    let ledger = store.waits()
+    expect(ledger.transitions.map((x) => x.at)).toEqual([edge + 2000])
+    expect(ledger.starts).toEqual([edge, T0])
+    setClock(T0 + DAY)
+    ledger = store.waits()
+    expect(ledger.transitions).toEqual([])
+    expect(ledger.spans).toEqual([])
+  })
+})
+
 describe('filesToDelete', () => {
   const file = (name: string, size: number) => ({ ...(parseHistoryFileName(name) as NonNullable<ReturnType<typeof parseHistoryFileName>>), size })
   const limits = { now: T0, maxBytes: 100, maxAgeMs: 8 * DAY }

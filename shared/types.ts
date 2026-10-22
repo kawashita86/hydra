@@ -269,6 +269,7 @@ export const IPC = {
   OVERVIEW_SNAPSHOT: 'overview:snapshot',
   OVERVIEW_AGENT_DETAILS: 'overview:agent-details',
   OVERVIEW_HISTORY: 'overview:history',
+  OVERVIEW_WAITS: 'overview:waits',
   OVERVIEW_EVENTS: 'overview:events',
 
   // Config

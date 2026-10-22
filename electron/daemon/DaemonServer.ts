@@ -5,7 +5,7 @@ import { homedir } from 'os'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
 import { AgentManager } from '../agents/AgentManager'
 import type { OverviewTracker } from '../overview/OverviewTracker'
-import type { HistoryResponse, OverviewEvent, OverviewSnapshot } from '@shared/overview/types'
+import type { HistoryResponse, OverviewEvent, OverviewSnapshot, WaitsResponse } from '@shared/overview/types'
 import { MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
 import type { ConfigStore } from '../config/ConfigStore'
 import type { SessionCatalog } from '../sessions/SessionCatalog'
@@ -33,6 +33,10 @@ import type {
 function emptyHistory(): HistoryResponse {
   const now = Date.now()
   return { since: now, startedAt: now, starts: [now], points: [], events: [], agents: {} }
+}
+
+function emptyWaits(): WaitsResponse {
+  return { ledger: { transitions: [], spans: [], starts: [] } }
 }
 
 function getShellConfig(): { shell: string; shellArgs: string[] } {
@@ -77,7 +81,7 @@ interface DaemonServerOptions {
   skillScanner: SkillScanner
   overviewTracker: OverviewTracker
   /** Answers `GET /overview/history`; without it the route answers an empty history. */
-  overviewHistory?: { query(sinceMs: number): HistoryResponse }
+  overviewHistory?: { query(sinceMs: number): HistoryResponse; waits(): WaitsResponse['ledger'] }
   onShutdown: () => void
 }
 
@@ -438,6 +442,10 @@ export class DaemonServer {
         const since = Number(url.searchParams.get('since'))
         const sinceMs = Number.isFinite(since) && since > 0 ? since : 0
         return this.json(res, 200, this.overviewHistory?.query(sinceMs) ?? emptyHistory())
+      }
+
+      if (method === 'GET' && path === '/overview/waits') {
+        return this.json(res, 200, { ledger: this.overviewHistory?.waits() ?? emptyWaits().ledger })
       }
 
       const detailsMatch = method === 'GET' ? path.match(/^\/overview\/agents\/([^/]+)\/details$/) : null

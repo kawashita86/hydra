@@ -5,9 +5,11 @@ import type {
   HistoryPoint,
   HistoryResponse,
   OverviewEvent,
-  OverviewStatus
+  OverviewStatus,
+  WaitLedgerData
 } from '@shared/overview/types'
 import { nodeHistoryFs, type HistoryFs } from './historyFiles'
+import { LEDGER_MS, WaitLedger } from './WaitLedger'
 
 /** Events kept in memory. */
 export const MAX_EVENTS = 1000
@@ -31,6 +33,8 @@ const FUTURE_SLACK_MS = 60 * 1000
 /** Unwritten lines kept when writing keeps failing. */
 const MAX_PENDING_LINES = 20000
 const DAY_MS = 24 * 60 * 60 * 1000
+/** A point line: `{"point":[<at>,`. */
+const POINT_TIME = /^\{"point":\[(\d{1,16}),/
 /** A finished or failed agent stays in the points written to disk this long. */
 const ENDED_KEPT_MS = 60 * 60 * 1000
 
@@ -280,6 +284,8 @@ export class HistoryStore {
   /** Where the restored history begins; `null` when nothing was restored. */
   private sinceAt: number | null = null
   private trimmed = false
+  /** Moves into and out of needs-you and measured stretches of the last 9 days, from every file restored and live. */
+  private readonly ledger = new WaitLedger()
 
   private pending: { day: string; record: HistoryRecord; disk?: Record<string, OverviewStatus> }[] = []
   /** When each finished or failed agent was first seen so, to leave it out of points after an hour. */
@@ -314,6 +320,8 @@ export class HistoryStore {
     }
     if (this.persist) this.restore()
     this.starts.push(this.startedAt)
+    this.ledger.addStart(this.startedAt)
+    this.ledger.prune(this.startedAt)
     this.enqueue({ kind: 'start', at: this.startedAt })
     this.flush()
     this.timer = setInterval(() => this.flush(), this.flushIntervalMs)
@@ -333,18 +341,26 @@ export class HistoryStore {
       if (event.agentId) this.names.set(event.agentId, { name: event.name, projectDir: event.projectDir })
       this.enqueue({ kind: 'event', event })
     }
+    this.ledger.addEvents(events)
     this.trimEvents()
   }
 
   /** `agents` tells the names of the agents in `point.statuses`. */
   addPoint(point: HistoryPoint, agents?: Record<string, HistoryAgent>): void {
     this.points.push(point)
+    this.ledger.addPoint(point.at)
     if (agents) for (const [id, a] of Object.entries(agents)) this.names.set(id, a)
     this.enqueue({ kind: 'point', point })
     if (this.points.length > MAX_POINTS) {
       this.points.splice(0, this.points.length - MAX_POINTS)
       this.trimmed = true
     }
+  }
+
+  /** The last 9 days of waits and measured time, for the totals. */
+  waits(): WaitLedgerData {
+    this.ledger.prune(this.now())
+    return this.ledger.data()
   }
 
   /** When the newest point was taken, restored ones included; `null` when there is none. */
@@ -442,9 +458,14 @@ export class HistoryStore {
     let eventCount = 0
     let pointCount = 0
     let oldest: number | null = null
+    const wholeChunks: WaitLedgerData[] = []
+    const wholeFrom = now - LEDGER_MS - DAY_MS
     for (const file of files) {
       if (this.budgetClock() > deadline) break
       if (!file.ordinary || file.size > MAX_READ_BYTES) continue
+      // Once the rings are full, older files only feed the wait ledger.
+      const ringsFull = eventCount >= MAX_EVENTS && pointCount >= MAX_POINTS
+      if (ringsFull && file.dayStart < wholeFrom) continue
       let content: string
       try {
         content = this.fs.read(join(this.dir, file.name), MAX_READ_BYTES)
@@ -454,17 +475,33 @@ export class HistoryStore {
       const events: OverviewEvent[] = []
       const points: HistoryPoint[] = []
       const starts: number[] = []
+      const whole = new WaitLedger()
       let first: number | null = null
       // Status map of the last point read from this file; a delta needs a full point before it.
       let state: Record<string, OverviewStatus> | null = null
       for (const line of content.split('\n')) {
+        if (ringsFull) {
+          // Only the time of a point matters here; skip parsing its statuses.
+          const m = POINT_TIME.exec(line)
+          if (m && line.length <= MAX_LINE_LENGTH) {
+            const at = Number(m[1])
+            if (at <= now + FUTURE_SLACK_MS) {
+              whole.addPoint(at)
+              continue
+            }
+          }
+        }
         const record = decodeLine(line)
         if (!record) continue
         const at = recordAt(record)
         if (at > now + FUTURE_SLACK_MS) continue
-        first = first === null ? at : Math.min(first, at)
-        if (record.kind === 'event') events.push(record.event)
-        else if (record.kind === 'point') {
+        if (!ringsFull) first = first === null ? at : Math.min(first, at)
+        if (record.kind === 'event') {
+          whole.addEvents([record.event])
+          if (!ringsFull) events.push(record.event)
+        } else if (record.kind === 'point') {
+          whole.addPoint(at)
+          if (ringsFull) continue
           if (record.delta) {
             if (!state) continue
             const next: Record<string, OverviewStatus> = { ...state }
@@ -477,15 +514,18 @@ export class HistoryStore {
             state = { ...record.point.statuses }
           }
           points.push({ ...record.point, statuses: { ...state } })
-        } else starts.push(record.at)
+        } else {
+          whole.addStart(record.at)
+          starts.push(record.at)
+        }
       }
+      wholeChunks.unshift(whole.data())
       eventChunks.unshift(events)
       pointChunks.unshift(points)
       startChunks.unshift(starts)
       eventCount += events.length
       pointCount += points.length
       if (first !== null) oldest = first
-      if (eventCount >= MAX_EVENTS && pointCount >= MAX_POINTS) break
     }
 
     // Files hold records in time order; sort anyway so a skewed clock cannot disorder the rings.
@@ -496,6 +536,7 @@ export class HistoryStore {
     this.trimmed = points.length > MAX_POINTS
     this.starts = startChunks.flat().sort((a, b) => a - b)
     this.sinceAt = oldest
+    for (const chunk of wholeChunks) this.ledger.append(chunk)
     for (const e of this.events) {
       if (e.agentId) this.names.set(e.agentId, { name: e.name, projectDir: e.projectDir })
     }
