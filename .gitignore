@@ -10,3 +10,4 @@ bun.lock
 !.env.example
 !**/.env.example
 scripts/deploy-local.sh
+.idea/
