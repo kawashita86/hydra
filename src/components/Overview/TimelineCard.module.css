@@ -5,6 +5,11 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  /* Long lists scroll inside the card; the gutter keeps strips aligned with the axis. */
+  max-height: min(560px, 65vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .row {
@@ -33,4 +38,6 @@
 
 .axisWrap {
   margin-left: calc(140px + var(--space-3));
+  /* Matches the rows' scrollbar gutter (6px, see global.css). */
+  margin-right: 6px;
 }
