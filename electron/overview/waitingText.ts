@@ -75,38 +75,57 @@ export class WaitingTextReader {
   }
 
   private locate(agent: WaitingTextAgent, known?: string): string | null {
-    if (known) {
-      try {
-        if (lstatSync(known).isFile()) return known
-      } catch {
-        // Moved or removed: search again.
-      }
-    }
-    const dirs = [...(agent.configDir ? [join(agent.configDir, 'projects')] : []), ...this.projectsDirs()]
-    for (const dir of new Set(dirs)) {
-      const found = findClaudeTranscriptFile(agent.sessionId, dir)
-      if (found) return found
-    }
-    return null
+    return locateClaudeTranscript(agent.sessionId, agent.configDir, this.projectsDirs, known)
   }
 
   /** Reads the tail through a descriptor opened without following symlinks. */
   private readTail(path: string, projectDir: string): string | null | undefined {
-    const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0))
+    const tail = readTranscriptTail(path)
+    return tail === undefined ? undefined : lastAskFromTail(tail.text, tail.wholeFile, projectDir)
+  }
+}
+
+/** Finds the transcript of a session: `known` if it still exists, then the agent's own profile, then every profile. */
+export function locateClaudeTranscript(
+  sessionId: string,
+  configDir: string | undefined,
+  projectsDirs: () => string[],
+  known?: string
+): string | null {
+  if (known) {
     try {
-      const stat = fstatSync(fd)
-      if (!stat.isFile()) return undefined
-      const length = Math.min(stat.size, MAX_TAIL_BYTES)
-      const buffer = Buffer.alloc(length)
-      let done = 0
-      while (done < length) {
-        const n = readSync(fd, buffer, done, length - done, stat.size - length + done)
-        if (n <= 0) break
-        done += n
-      }
-      return lastAskFromTail(buffer.toString('utf-8', 0, done), stat.size <= MAX_TAIL_BYTES, projectDir)
-    } finally {
-      closeSync(fd)
+      if (lstatSync(known).isFile()) return known
+    } catch {
+      // Moved or removed: search again.
     }
+  }
+  const dirs = [...(configDir ? [join(configDir, 'projects')] : []), ...projectsDirs()]
+  for (const dir of new Set(dirs)) {
+    const found = findClaudeTranscriptFile(sessionId, dir)
+    if (found) return found
+  }
+  return null
+}
+
+/**
+ * Reads the last 256 KB of a regular file through a descriptor opened without
+ * following symlinks. `undefined` when it is not a regular file.
+ */
+export function readTranscriptTail(path: string): { text: string; wholeFile: boolean } | undefined {
+  const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0))
+  try {
+    const stat = fstatSync(fd)
+    if (!stat.isFile()) return undefined
+    const length = Math.min(stat.size, MAX_TAIL_BYTES)
+    const buffer = Buffer.alloc(length)
+    let done = 0
+    while (done < length) {
+      const n = readSync(fd, buffer, done, length - done, stat.size - length + done)
+      if (n <= 0) break
+      done += n
+    }
+    return { text: buffer.toString('utf-8', 0, done), wholeFile: stat.size <= MAX_TAIL_BYTES }
+  } finally {
+    closeSync(fd)
   }
 }

@@ -100,7 +100,7 @@
 
 .cardHeader {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
@@ -114,6 +114,12 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-secondary);
+}
+
+.cardHeaderEnd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .cardMeta {
@@ -134,66 +140,6 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
-
-.list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: 6px 0;
-  border-bottom: 1px solid var(--color-border-subtle);
-  font-size: var(--font-size-base);
-  min-width: 0;
-}
-
-.row:last-child {
-  border-bottom: none;
-}
-
-.rowName {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rowStatus {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.rowMeta {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  flex-shrink: 0;
-  background: var(--color-status-idle);
-}
-
-.dot_needs_you { background: var(--color-accent); }
-.dot_working { background: var(--color-status-running); }
-.dot_idle { background: var(--color-status-idle); }
-.dot_starting { background: var(--color-status-starting); }
-.dot_finished { background: var(--color-text-muted); }
-.dot_failed { background: var(--color-status-error); }
 
 .centered {
   height: 100%;

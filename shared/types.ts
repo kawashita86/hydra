@@ -267,6 +267,7 @@ export const IPC = {
   // Overview
   OVERVIEW_GET: 'overview:get',
   OVERVIEW_SNAPSHOT: 'overview:snapshot',
+  OVERVIEW_AGENT_DETAILS: 'overview:agent-details',
 
   // Config
   CONFIG_GET: 'config:get',

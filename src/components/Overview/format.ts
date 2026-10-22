@@ -17,3 +17,17 @@ export function projectName(projectDir: string): string {
   const parts = projectDir.split(/[\\/]+/).filter(Boolean)
   return parts[parts.length - 1] ?? projectDir
 }
+
+/** Absolute time for a timestamp: `14:02:11`, with the date when it is not today. */
+export function formatClock(at: number, now: number = Date.now()): string {
+  const date = new Date(at)
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return date.toDateString() === new Date(now).toDateString()
+    ? time
+    : `${date.toLocaleDateString([], { day: 'numeric', month: 'short' })} ${time}`
+}
+
+/** `182431` -> `182,431`. */
+export function formatCount(n: number): string {
+  return n.toLocaleString('en-US')
+}

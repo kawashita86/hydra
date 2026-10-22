@@ -31,6 +31,12 @@ export interface OverviewSession {
   model: ModelId
   projectDir: string
   worktreeBranch: string | null
+  /** Repository name, read from git files by the daemon (worktrees group under their main repo). */
+  repoName?: string
+  /** Live branch of `projectDir`; absent when detached or not a repository. */
+  branch?: string
+  /** Short commit id, set when HEAD is detached. */
+  commit?: string
   status: OverviewStatus
   /** Epoch ms when the derived status last changed (kept by the tracker). */
   statusSince: number
@@ -99,4 +105,11 @@ export interface WaitTotals {
   byDay: { day: string; ms: number; measured: boolean }[]
   /** Longest waiters first. */
   longest: { agentId: string; name: string; ms: number }[]
+}
+
+/** What the details drawer shows, read on demand from the transcript. */
+export interface AgentDetails {
+  lastMessage: { text: string; truncated: boolean } | { unavailable: string }
+  /** Token counts of the newest reply; `cached` is the part of `input` read from a cache. */
+  tokens: { input: number; cached?: number; output: number } | null
 }

@@ -15,7 +15,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 4 — Third view: Grid | Chat | Overview
 - [x] Step 5 — Needs you panel, counts and Jump
 - [x] Step 6 — What a waiting session asks (transcript tail)
-- [ ] Step 7 — Sessions card: List, Repos, Board and details drawer
+- [x] Step 7 — Sessions card: List, Repos, Board and details drawer
 - [ ] Step 8 — History: events and samples, kept on disk
 - [ ] Step 9 — Last hour chart and Timeline
 - [ ] Step 10 — Events log

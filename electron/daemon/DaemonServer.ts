@@ -421,6 +421,13 @@ export class DaemonServer {
         return this.json(res, 200, await this.overviewTracker.getSnapshot())
       }
 
+      const detailsMatch = method === 'GET' ? path.match(/^\/overview\/agents\/([^/]+)\/details$/) : null
+      if (detailsMatch) {
+        const details = this.overviewTracker.getDetails(decodeURIComponent(detailsMatch[1]))
+        if (!details) return this.json(res, 404, { error: 'Agent not found' })
+        return this.json(res, 200, details)
+      }
+
       if (method === 'GET' && path === '/agents') {
         return this.json(res, 200, this.agentManager.list())
       }

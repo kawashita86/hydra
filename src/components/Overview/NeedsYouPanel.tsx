@@ -19,6 +19,8 @@ interface NeedsYouPanelProps {
   /** True when the snapshot has agents of more than one provider. */
   showProvider: boolean
   onJumpToAgent: (agentId: string) => void
+  /** Opens the details drawer; the agent name becomes a button when given. */
+  onOpenDetails?: (agentId: string, trigger: HTMLElement | null) => void
   /** TODO(Step 8): rendered in the empty state when provided. */
   lastWait?: LastWait
 }
@@ -34,13 +36,15 @@ function Item({
   now,
   showProvider,
   large,
-  onJumpToAgent
+  onJumpToAgent,
+  onOpenDetails
 }: {
   session: OverviewSession
   now: number
   showProvider: boolean
   large: boolean
   onJumpToAgent: (agentId: string) => void
+  onOpenDetails?: (agentId: string, trigger: HTMLElement | null) => void
 }) {
   const where = [
     session.worktreeBranch
@@ -55,9 +59,22 @@ function Item({
     <li className={`${styles.item} ${large ? styles.large : ''}`}>
       <div className={styles.main}>
         <div className={styles.head}>
-          <span className={styles.name} title={session.name}>
-            {session.name}
-          </span>
+          {onOpenDetails ? (
+            <button
+              type="button"
+              className={`${styles.name} ${styles.nameButton}`}
+              title={session.name}
+              data-session-trigger={session.agentId}
+              onClick={(e) => onOpenDetails(session.agentId, e.currentTarget)}
+              aria-label={`Details of ${session.name}`}
+            >
+              {session.name}
+            </button>
+          ) : (
+            <span className={styles.name} title={session.name}>
+              {session.name}
+            </span>
+          )}
           <span className={styles.reason}>{reasonLabel(session.waitingReason)}</span>
         </div>
         <div className={styles.where} title={session.projectDir}>
@@ -84,7 +101,7 @@ function Item({
   )
 }
 
-export function NeedsYouPanel({ sessions, now, showProvider, onJumpToAgent, lastWait }: NeedsYouPanelProps) {
+export function NeedsYouPanel({ sessions, now, showProvider, onJumpToAgent, onOpenDetails, lastWait }: NeedsYouPanelProps) {
   const sorted = useMemo(
     () => [...sessions].sort((a, b) => a.statusSince - b.statusSince),
     [sessions]
@@ -114,6 +131,7 @@ export function NeedsYouPanel({ sessions, now, showProvider, onJumpToAgent, last
           showProvider={showProvider}
           large={index === 0}
           onJumpToAgent={onJumpToAgent}
+          onOpenDetails={onOpenDetails}
         />
       ))}
     </ul>

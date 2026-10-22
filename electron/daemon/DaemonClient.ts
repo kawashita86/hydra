@@ -20,7 +20,7 @@ import type {
   SkillTogglePayload,
   FreeTerminalLayout
 } from '@shared/types'
-import type { OverviewSnapshot } from '@shared/overview/types'
+import type { AgentDetails, OverviewSnapshot } from '@shared/overview/types'
 import type { DaemonHealthResponse, WsServerMessage } from './protocol'
 
 const WS_RECONNECT_INTERVAL = 2000
@@ -172,6 +172,14 @@ export class DaemonClient extends EventEmitter {
 
   async getOverview(): Promise<OverviewSnapshot> {
     return this.httpRequest('GET', '/overview')
+  }
+
+  async getOverviewAgentDetails(agentId: string): Promise<AgentDetails | null> {
+    try {
+      return await this.httpRequest('GET', `/overview/agents/${encodeURIComponent(agentId)}/details`)
+    } catch {
+      return null
+    }
   }
 
   async get(agentId: string): Promise<AgentState | null> {

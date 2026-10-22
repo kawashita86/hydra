@@ -28,6 +28,8 @@ import { OverviewTracker } from '../overview/OverviewTracker'
 import { ClaudeRegistryReader } from '../overview/claudeRegistry'
 import { ProcessTableReader } from '../overview/processTree'
 import { WaitingTextReader } from '../overview/waitingText'
+import { AgentDetailsReader } from '../overview/agentDetails'
+import { GitInfoCache } from '../overview/gitInfo'
 import { discoverClaudeConfigDirs } from '../sessions/claudeProfiles'
 import { fixPath } from '../util/fix-path'
 
@@ -185,7 +187,9 @@ async function main(): Promise<void> {
     registryReader: new ClaudeRegistryReader(),
     processTableReader: new ProcessTableReader(),
     configDirs: () => discoverClaudeConfigDirs(),
-    waitingTextReader: new WaitingTextReader()
+    waitingTextReader: new WaitingTextReader(),
+    gitInfo: new GitInfoCache(),
+    detailsReader: new AgentDetailsReader()
   })
 
   const server = new DaemonServer({

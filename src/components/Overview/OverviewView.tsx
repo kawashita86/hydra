@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { computeCounts } from '@shared/overview/status'
-import type { OverviewSession, OverviewStatus } from '@shared/overview/types'
 import { useOverview } from '@/hooks/useOverview'
 import { Card, EmptyState } from './Card'
 import { CountsRow } from './CountsRow'
 import { projectName } from './format'
 import { NeedsYouPanel } from './NeedsYouPanel'
+import { SessionDetails } from './SessionDetails'
+import { SessionsCard } from './SessionsCard'
 import styles from './OverviewView.module.css'
 
 const FILTER_STORAGE_KEY = 'hydra.overview.projectFilter'
@@ -36,19 +37,6 @@ function writeStoredFilter(value: string): void {
   }
 }
 
-const STATUS_LABEL: Record<OverviewStatus, string> = {
-  'needs-you': 'Needs you',
-  working: 'Working',
-  idle: 'Idle',
-  starting: 'Starting',
-  finished: 'Finished',
-  failed: 'Failed'
-}
-
-function statusLabel(session: OverviewSession): string {
-  return session.stale ? 'Idle (stale)' : STATUS_LABEL[session.status]
-}
-
 function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
@@ -56,6 +44,25 @@ function plural(n: number, one: string, many: string): string {
 export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProps) {
   const { snapshot, loading, error, now } = useOverview()
   const [storedFilter, setStoredFilter] = useState<string>(readStoredFilter)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLElement | null>(null)
+
+  const openDetails = useCallback((agentId: string, trigger: HTMLElement | null) => {
+    triggerRef.current = trigger
+    setSelectedId(agentId)
+  }, [])
+
+  // Esc or the close button: back to the row (or card) that opened the drawer.
+  const closeDetails = useCallback(() => {
+    const agentId = selectedId
+    setSelectedId(null)
+    const trigger =
+      triggerRef.current?.isConnected === true
+        ? triggerRef.current
+        : rootRef.current?.querySelector<HTMLElement>(`[data-session-trigger="${agentId}"]`)
+    trigger?.focus()
+  }, [selectedId])
 
   const allSessions = useMemo(() => snapshot?.sessions ?? [], [snapshot])
 
@@ -122,7 +129,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
   const jump = (agentId: string) => onJumpToAgent?.(agentId)
 
   return (
-    <div className={styles.overview}>
+    <div className={styles.overview} ref={rootRef}>
       <div className={styles.topBar}>
         <h2 className={styles.title}>Overview</h2>
         <span className={styles.summary}>
@@ -158,6 +165,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
               now={now}
               showProvider={multipleProviders}
               onJumpToAgent={jump}
+              onOpenDetails={openDetails}
             />
             <CountsRow counts={counts} />
           </div>
@@ -167,24 +175,14 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           <EmptyState>No history yet</EmptyState>
         </Card>
 
-        <Card title="Sessions" area="sessions" meta={sessions.length}>
-          {sessions.length === 0 ? (
-            <EmptyState>No agents in this project</EmptyState>
-          ) : (
-            <ul className={styles.list}>
-              {sessions.map((s) => (
-                <li key={s.agentId} className={styles.row}>
-                  <span className={`${styles.dot} ${styles[`dot_${s.status.replace('-', '_')}`]}`} aria-hidden="true" />
-                  <span className={styles.rowName}>{s.name}</span>
-                  <span className={styles.rowStatus}>{statusLabel(s)}</span>
-                  <span className={styles.rowMeta} title={s.projectDir}>
-                    {projectName(s.projectDir)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+        <SessionsCard
+          sessions={sessions}
+          now={now}
+          showProvider={multipleProviders}
+          selectedId={selectedId}
+          onOpenDetails={openDetails}
+          onJumpToAgent={jump}
+        />
 
         <Card title="Events" area="events">
           <EmptyState>No events yet</EmptyState>
@@ -198,6 +196,17 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           <EmptyState>No waits recorded yet</EmptyState>
         </Card>
       </div>
+
+      {selectedId && (
+        <SessionDetails
+          key={selectedId}
+          agentId={selectedId}
+          session={allSessions.find((x) => x.agentId === selectedId)}
+          now={now}
+          onClose={closeDetails}
+          onJumpToAgent={jump}
+        />
+      )}
     </div>
   )
 }

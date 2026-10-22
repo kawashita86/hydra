@@ -4,7 +4,7 @@
 /** The longest text kept of what a waiting session asks, in characters. */
 export const MAX_WAITING_TEXT_LENGTH = 200
 
-type Json = Record<string, unknown>
+export type Json = Record<string, unknown>
 
 /** One `tool_use` block of the session's own, in transcript order. */
 interface ToolUse {
@@ -15,22 +15,22 @@ interface ToolUse {
   messageId: string | null
 }
 
-function isRecord(value: unknown): value is Json {
+export function isRecord(value: unknown): value is Json {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function nonEmpty(value: unknown): string | null {
+export function nonEmpty(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value : null
 }
 
-function blocksOf(line: Json): Json[] {
+export function blocksOf(line: Json): Json[] {
   const message = line.message
   if (!isRecord(message) || !Array.isArray(message.content)) return []
   return message.content.filter(isRecord)
 }
 
 /** Parses the tail. The first line is cut short unless the tail is the whole file, so it is dropped then. */
-function linesOf(tail: string, wholeFile: boolean): Json[] {
+export function linesOf(tail: string, wholeFile: boolean): Json[] {
   const pieces = tail.split('\n')
   if (!wholeFile) pieces.shift()
   const lines: Json[] = []

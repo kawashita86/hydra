@@ -246,4 +246,39 @@ describe('OverviewTracker', () => {
     await tracker.getSnapshot()
     expect(readRegistry).not.toHaveBeenCalled()
   })
+
+  it('adds repository, branch and commit and pushes when they change', async () => {
+    let info: { repoRoot: string; repoName: string; branch: string | null; commit: string | null } = {
+      repoRoot: '/work/proj', repoName: 'proj', branch: 'main', commit: null
+    }
+    const git = tracker as unknown as { gitInfo: unknown }
+    git.gitInfo = { get: () => info }
+    manager.agents = [makeAgent()]
+    tracker.start()
+    let snap = await tracker.refresh()
+    expect(snap.sessions[0]).toMatchObject({ repoName: 'proj', branch: 'main' })
+    expect(snap.sessions[0].commit).toBeUndefined()
+    const before = emitted.length
+    info = { ...info, branch: null, commit: 'abc1234' }
+    snap = await tracker.refresh()
+    expect(snap.sessions[0]).toMatchObject({ commit: 'abc1234' })
+    expect(snap.sessions[0].branch).toBeUndefined()
+    expect(emitted.length).toBe(before + 1)
+  })
+
+  it('reads details on demand for known agents only', async () => {
+    const read = vi.fn().mockReturnValue({ lastMessage: { text: 'hi', truncated: false }, tokens: null })
+    ;(tracker as unknown as { detailsReader: unknown }).detailsReader = { read }
+    manager.agents = [makeAgent({ provider: 'claude', sessionId: 's1' })]
+    manager.activity.set('a1', { lastOutputAt: clock, lastExitCode: null })
+    entries = [{ file: 'f', configDir: '/cfg', pid: 7, sessionId: 's1', status: 'busy' }]
+    expect(tracker.getDetails('a1')).toBeNull()
+    await tracker.refresh()
+    expect(read).not.toHaveBeenCalled()
+    expect(tracker.getDetails('a1')?.lastMessage).toEqual({ text: 'hi', truncated: false })
+    expect(read).toHaveBeenCalledWith({
+      provider: 'claude', sessionId: 's1', projectDir: '/work/proj', configDir: '/cfg'
+    })
+    expect(tracker.getDetails('nope')).toBeNull()
+  })
 })

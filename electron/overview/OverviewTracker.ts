@@ -2,6 +2,7 @@ import { EventEmitter } from 'events'
 import type { AgentState, AgentStatusPayload } from '@shared/types'
 import type {
   AgentActivity,
+  AgentDetails,
   OverviewSession,
   OverviewSnapshot,
   OverviewStatus
@@ -9,6 +10,8 @@ import type {
 import { computeCounts, deriveStatus, isStale, quietForMs } from '@shared/overview/status'
 import { matchRegistryEntries, type RegistryEntry } from './claudeRegistry'
 import type { WaitingTextReader } from './waitingText'
+import type { AgentDetailsReader, DetailsLocator } from './agentDetails'
+import type { GitInfo } from './gitInfo'
 import { descendantPids, type ProcessTable } from './processTree'
 
 /** The slice of `AgentManager` the tracker needs. */
@@ -26,6 +29,10 @@ export interface OverviewTrackerDeps {
   configDirs: () => string[]
   /** Reads what a waiting Claude session asks; optional. */
   waitingTextReader?: Pick<WaitingTextReader, 'read' | 'forget' | 'retain'>
+  /** Reads repository and branch of a project folder; optional. */
+  gitInfo?: { get(projectDir: string): GitInfo | null; retain?(projectDirs: Iterable<string>): void }
+  /** Reads the details drawer data on demand; optional. */
+  detailsReader?: Pick<AgentDetailsReader, 'read'>
   now?: () => number
   /** Poll interval. Default 2 s. */
   pollIntervalMs?: number
@@ -44,6 +51,9 @@ function sessionKey(s: OverviewSession): string {
     s.model,
     s.projectDir,
     s.worktreeBranch,
+    s.repoName ?? null,
+    s.branch ?? null,
+    s.commit ?? null,
     s.status,
     s.statusSince,
     s.waitingReason ?? null,
@@ -66,6 +76,9 @@ export class OverviewTracker extends EventEmitter {
   private readonly processTableReader: OverviewTrackerDeps['processTableReader']
   private readonly configDirs: () => string[]
   private readonly waitingTextReader: OverviewTrackerDeps['waitingTextReader']
+  private readonly gitInfo: OverviewTrackerDeps['gitInfo']
+  private readonly detailsReader: OverviewTrackerDeps['detailsReader']
+  private readonly locators = new Map<string, DetailsLocator>()
   private readonly now: () => number
   private readonly pollIntervalMs: number
   private readonly statusDebounceMs: number
@@ -94,6 +107,8 @@ export class OverviewTracker extends EventEmitter {
     this.processTableReader = deps.processTableReader
     this.configDirs = deps.configDirs
     this.waitingTextReader = deps.waitingTextReader
+    this.gitInfo = deps.gitInfo
+    this.detailsReader = deps.detailsReader
     this.now = deps.now ?? Date.now
     this.pollIntervalMs = deps.pollIntervalMs ?? 2000
     this.statusDebounceMs = deps.statusDebounceMs ?? 100
@@ -121,6 +136,17 @@ export class OverviewTracker extends EventEmitter {
   /** The latest snapshot; polls once first when there is none yet. */
   async getSnapshot(): Promise<OverviewSnapshot> {
     return this.snapshot ?? this.refresh()
+  }
+
+  /**
+   * Details for the drawer, read from the transcript on demand. `null` when
+   * the agent is unknown (it may have disappeared since the last poll).
+   */
+  getDetails(agentId: string): AgentDetails | null {
+    const locator = this.locators.get(agentId)
+    if (!locator) return null
+    if (!this.detailsReader) return { lastMessage: { unavailable: 'not available' }, tokens: null }
+    return this.detailsReader.read(locator)
   }
 
   /** Polls now. Calls made during a poll share it and trigger one more run afterwards. */
@@ -182,6 +208,13 @@ export class OverviewTracker extends EventEmitter {
             configDir: match?.configDir
           }) ?? undefined
       }
+      this.locators.set(agent.id, {
+        provider: agent.provider,
+        sessionId: sessionId ?? null,
+        projectDir: agent.projectDir,
+        configDir: match?.configDir
+      })
+      const git = this.gitInfo?.get(agent.projectDir) ?? null
       return {
         agentId: agent.id,
         name: agent.name,
@@ -189,6 +222,9 @@ export class OverviewTracker extends EventEmitter {
         model: agent.model,
         projectDir: agent.projectDir,
         worktreeBranch: agent.worktreeBranch ?? null,
+        ...(git ? { repoName: git.repoName } : {}),
+        ...(git?.branch ? { branch: git.branch } : {}),
+        ...(git?.commit ? { commit: git.commit } : {}),
         status: derived.status,
         statusSince: since,
         waitingReason: derived.waitingReason,
@@ -204,6 +240,10 @@ export class OverviewTracker extends EventEmitter {
     for (const id of [...this.tracked.keys()]) {
       if (!alive.has(id)) this.tracked.delete(id)
     }
+    for (const id of [...this.locators.keys()]) {
+      if (!alive.has(id)) this.locators.delete(id)
+    }
+    this.gitInfo?.retain?.(agents.map((a) => a.projectDir))
 
     const snapshot: OverviewSnapshot = { at: now, sessions, counts: computeCounts(sessions, now) }
     this.snapshot = snapshot

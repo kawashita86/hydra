@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDuration } from './format'
+import { formatCount, formatDuration } from './format'
 
 describe('formatDuration', () => {
   it('formats seconds, minutes and hours', () => {
@@ -19,5 +19,11 @@ describe('formatDuration', () => {
     expect(formatDuration(45_000, { compact: true })).toBe('45s')
     expect(formatDuration(724_000, { compact: true })).toBe('12m')
     expect(formatDuration(3_780_000, { compact: true })).toBe('1h 03m')
+  })
+})
+
+describe('formatCount', () => {
+  it('groups thousands', () => {
+    expect(formatCount(182431)).toBe('182,431')
   })
 })
