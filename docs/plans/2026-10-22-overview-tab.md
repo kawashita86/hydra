@@ -20,7 +20,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 9 — Last hour chart and Timeline
 - [x] Step 10 — Events log
 - [x] Step 11 — Waits (Waited on you bars, today / 7 days)
-- [ ] Step 12 — Polish: badges, notifications, docs
+- [x] Step 12 — Polish: badges, notifications, docs
 
 ---
 
@@ -232,3 +232,13 @@ Each step ends green on `npm run typecheck && npm test`, and is one or a few Con
 - **Shell wrapper PIDs.** With `login` shell mode the PTY pid is the shell, not `claude`; hence the descendant-pid tier.
 - **Performance.** One `readdir` + a few small reads every 2 s per profile; transcript tail only for waiting agents and an open details drawer. `ps` at most every 10 s and only when needed.
 - **Windows.** Registry reading works; descendant-pid matching is skipped, so matching relies on sessionId / cwd.
+
+---
+
+## 7. Follow-ups
+
+- Allow / Deny from the Overview itself (a Claude Code `PermissionRequest` hook instead of reading the registry).
+- Approval detection for Codex and OpenCode (today they only get working / idle / finished / failed).
+- Hydra Remote (`hydra-remote/`) support: needs-you list and badge on the phone.
+- Default view setting (`defaultViewMode`) accepting Overview.
+- Manual theme check of the charts in `light`, `dark` and `midnight`.

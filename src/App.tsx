@@ -34,6 +34,8 @@ import {
   type HydraCommandId
 } from '@shared/keybindings'
 import { SIDEBAR_SEARCH_FOCUS_EVENT } from './components/Sidebar/SearchBar'
+import { useOverviewSnapshot, needsYouCount } from './hooks/useOverview'
+import { useNeedsYouTitle } from './hooks/useNeedsYouTitle'
 import { OverviewView } from './components/Overview/OverviewView'
 import { ShortcutsOverlay } from './components/Shortcuts/ShortcutsOverlay'
 import styles from './App.module.css'
@@ -112,6 +114,10 @@ export default function App() {
     openDownload
   } = useUpdates()
   const remoteControl = useRemoteControl()
+  // One snapshot subscription for the tab badge, the window title and the Overview view (its 1 s tick stays inside the view).
+  const overview = useOverviewSnapshot()
+  const needsYou = needsYouCount(overview.snapshot)
+  useNeedsYouTitle(needsYou)
   const {
     agents,
     agentList,
@@ -695,6 +701,7 @@ export default function App() {
       <Header
         viewMode={viewMode}
         onSelectViewMode={setViewMode}
+        needsYouCount={needsYou}
         onOpenNewAgent={handleOpenNewAgentForCurrentProject}
         globalYolo={config.globalYolo}
         onToggleGlobalYolo={handleGlobalYoloToggle}
@@ -818,6 +825,7 @@ export default function App() {
             />
           ) : renderedViewMode === 'overview' ? (
             <OverviewView
+              overview={overview}
               onJumpToAgent={handleJumpToAgent}
               onOpenNewAgent={() => {
                 void handleOpenNewAgent()

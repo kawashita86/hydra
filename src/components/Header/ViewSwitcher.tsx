@@ -4,9 +4,11 @@ import styles from './ViewSwitcher.module.css'
 interface ViewSwitcherProps {
   viewMode: ViewMode
   onSelect: (mode: ViewMode) => void
+  /** Agents waiting on the user, shown as a badge on the Overview tab. */
+  needsYouCount?: number
 }
 
-export function ViewSwitcher({ viewMode, onSelect }: ViewSwitcherProps) {
+export function ViewSwitcher({ viewMode, onSelect, needsYouCount = 0 }: ViewSwitcherProps) {
   const tabs: { mode: ViewMode; label: string; icon: JSX.Element }[] = [
     { mode: 'grid', label: 'Grid', icon: <GridIcon /> },
     { mode: 'chat', label: 'Chat', icon: <ChatIcon /> },
@@ -14,18 +16,29 @@ export function ViewSwitcher({ viewMode, onSelect }: ViewSwitcherProps) {
   ]
   return (
     <div className={styles.switcher} role="tablist">
-      {tabs.map((tab) => (
+      {tabs.map((tab) => {
+        const badge = tab.mode === 'overview' && needsYouCount > 0 ? needsYouCount : 0
+        return (
         <button
           key={tab.mode}
           className={`${styles.tab} ${viewMode === tab.mode ? styles.active : ''}`}
           onClick={() => onSelect(tab.mode)}
           role="tab"
           aria-selected={viewMode === tab.mode}
+          aria-label={
+            badge > 0 ? `${tab.label}, ${badge} ${badge === 1 ? 'agent needs' : 'agents need'} you` : undefined
+          }
         >
           {tab.icon}
           {tab.label}
+          {badge > 0 && (
+            <span className={styles.badge} aria-hidden="true">
+              {badge > 99 ? '99+' : badge}
+            </span>
+          )}
         </button>
-      ))}
+        )
+      })}
     </div>
   )
 }

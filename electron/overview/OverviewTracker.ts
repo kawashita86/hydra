@@ -97,6 +97,8 @@ export class OverviewTracker extends EventEmitter {
 
   private snapshot: OverviewSnapshot | null = null
   private lastKey: string | null = null
+  /** Claude agents matched to a registry entry in the last poll. */
+  private matchedIds = new Set<string>()
   private readonly tracked = new Map<string, { status: OverviewStatus; since: number }>()
   private pollTimer: ReturnType<typeof setInterval> | null = null
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -150,6 +152,16 @@ export class OverviewTracker extends EventEmitter {
   /** The latest snapshot; polls once first when there is none yet. */
   async getSnapshot(): Promise<OverviewSnapshot> {
     return this.snapshot ?? this.refresh()
+  }
+
+  /** The latest snapshot without polling, `null` before the first poll. */
+  peekSnapshot(): OverviewSnapshot | null {
+    return this.snapshot
+  }
+
+  /** Whether the agent was matched to a Claude registry entry in the last poll. */
+  hasRegistryMatch(agentId: string): boolean {
+    return this.matchedIds.has(agentId)
   }
 
   /**
@@ -222,6 +234,7 @@ export class OverviewTracker extends EventEmitter {
       matches = matchRegistryEntries(running, entries, descendants)
     }
 
+    this.matchedIds = new Set(matches.keys())
     const now = this.now()
     const alive = new Set<string>()
     const waiting = new Set<string>()

@@ -3,7 +3,7 @@ import type { HistoryAgent, WaitingNow } from '@shared/overview/types'
 import { lastHourWaits } from '@shared/overview/waits'
 import type { CountKey } from '@shared/overview/buckets'
 import { computeCounts } from '@shared/overview/status'
-import { useOverview } from '@/hooks/useOverview'
+import { useNow, useOverviewSnapshot, type OverviewData } from '@/hooks/useOverview'
 import { useOverviewHistory } from '@/hooks/useOverviewHistory'
 import { useOverviewWaits } from '@/hooks/useOverviewWaits'
 import { Card, EmptyState } from './Card'
@@ -32,6 +32,8 @@ interface OverviewViewProps {
   /** Selects the agent (and its project) and switches to the Chat view. */
   onJumpToAgent?: (agentId: string) => void
   onOpenNewAgent?: () => void
+  /** Snapshot state owned by the parent (shared with the tab badge); subscribes itself when absent. */
+  overview?: OverviewData
 }
 
 function readStoredFilter(): string {
@@ -55,8 +57,10 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProps) {
-  const { snapshot, loading, error, now } = useOverview()
+export function OverviewView({ onOpenNewAgent, onJumpToAgent, overview }: OverviewViewProps) {
+  const own = useOverviewSnapshot(overview !== undefined)
+  const { snapshot, loading, error } = overview ?? own
+  const now = useNow()
   const { history } = useOverviewHistory()
   const { ledger } = useOverviewWaits()
   const [storedFilter, setStoredFilter] = useState<string>(readStoredFilter)

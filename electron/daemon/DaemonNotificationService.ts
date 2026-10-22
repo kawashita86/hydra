@@ -2,10 +2,31 @@ import { randomUUID } from 'crypto'
 import type { AgentManager } from '../agents/AgentManager'
 import type { HeadlessOrchestrator } from '../headless/HeadlessOrchestrator'
 import type { HydraNotification, NotificationType, AgentStatusPayload } from '@shared/types'
+import type { OverviewEvent, OverviewSession, OverviewSnapshot } from '@shared/overview/types'
 
 const MAX_RECENT = 50
 
 type Subscriber = (notification: HydraNotification) => void
+
+/** The slice of `OverviewTracker` the notification service needs. */
+export interface OverviewNotificationSource {
+  on(event: 'events', listener: (events: OverviewEvent[]) => void): unknown
+  peekSnapshot(): OverviewSnapshot | null
+  hasRegistryMatch(agentId: string): boolean
+}
+
+function needsYouBody(session: Pick<OverviewSession, 'name' | 'waitingReason' | 'waitingText'>): string {
+  const { name, waitingReason, waitingText } = session
+  const detail = waitingText ? `: ${waitingText}` : ''
+  switch (waitingReason) {
+    case 'permission':
+      return `${name} needs permission${detail}`
+    case 'question':
+      return waitingText ? `${name} asked a question: ${waitingText}` : `${name} asked a question`
+    default:
+      return `${name} is waiting for you${detail}`
+  }
+}
 
 /**
  * Base notification service with no Electron dependencies.
@@ -16,6 +37,35 @@ export class DaemonNotificationService {
   protected recent: HydraNotification[] = []
   protected subscribers = new Set<Subscriber>()
   private lastAgentStatus = new Map<string, string>()
+  private overviewSource: OverviewNotificationSource | null = null
+
+  /**
+   * Notifies when a Claude agent enters `needs-you` per the Overview tracker,
+   * with the reason. Once connected, the 5 s-silence `agent_waiting`
+   * heuristic is suppressed for Claude agents the tracker matched to a
+   * registry entry (it fires falsely for busy-but-quiet agents).
+   */
+  connectOverviewEvents(tracker: OverviewNotificationSource): void {
+    this.overviewSource = tracker
+    tracker.on('events', (events) => {
+      for (const event of events) {
+        if (event.kind !== 'status' || event.to !== 'needs-you') continue
+        const session = tracker.peekSnapshot()?.sessions.find((s) => s.agentId === event.agentId)
+        this.push({
+          id: randomUUID().slice(0, 12),
+          type: 'agent_waiting',
+          title: 'Needs you',
+          body: needsYouBody({
+            name: session?.name ?? event.name,
+            waitingReason: session?.waitingReason ?? event.waitingReason,
+            waitingText: session?.waitingText
+          }),
+          agentId: event.agentId,
+          timestamp: new Date().toISOString()
+        })
+      }
+    })
+  }
 
   push(notification: HydraNotification): void {
     this.recent.push(notification)
@@ -51,6 +101,8 @@ export class DaemonNotificationService {
     agentManager.on('agent_waiting', (payload: { agentId: string }) => {
       const agent = agentManager.get(payload.agentId)
       const agentName = agent?.name ?? payload.agentId
+
+      if (agent?.provider === 'claude' && this.overviewSource?.hasRegistryMatch(payload.agentId)) return
 
       this.push({
         id: randomUUID().slice(0, 12),

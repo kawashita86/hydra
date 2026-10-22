@@ -7,6 +7,7 @@ import styles from './Header.module.css'
 interface HeaderProps {
   viewMode: ViewMode
   onSelectViewMode: (mode: ViewMode) => void
+  needsYouCount?: number
   onOpenNewAgent: () => void
   globalYolo: boolean
   onToggleGlobalYolo: () => void
@@ -28,6 +29,7 @@ interface HeaderProps {
 export function Header({
   viewMode,
   onSelectViewMode,
+  needsYouCount,
   onOpenNewAgent,
   globalYolo: _globalYolo,
   onToggleGlobalYolo: _onToggleGlobalYolo,
@@ -68,7 +70,7 @@ export function Header({
       </div>
 
       <div className={`${styles.center} titlebar-no-drag`}>
-        <ViewSwitcher viewMode={viewMode} onSelect={onSelectViewMode} />
+        <ViewSwitcher viewMode={viewMode} onSelect={onSelectViewMode} needsYouCount={needsYouCount} />
       </div>
 
       <div className={`${styles.right} titlebar-no-drag`}>

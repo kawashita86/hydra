@@ -92,6 +92,11 @@ vi.mock('./components/GridView/GridView', () => ({
   )
 }))
 
+vi.mock('./hooks/useOverview', () => ({
+  useOverviewSnapshot: () => ({ snapshot: null, loading: false, error: null }),
+  needsYouCount: () => 0
+}))
+
 vi.mock('./components/Overview/OverviewView', () => ({
   OverviewView: (props: { onJumpToAgent: (agentId: string) => void }) => (
     <div>

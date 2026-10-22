@@ -18,6 +18,7 @@ Hydra is a cross-platform desktop application (macOS, Windows, and Linux) that l
 - [Features](#features)
   - [Multi-Agent Workspace](#multi-agent-workspace)
   - [Chat and Grid Views](#chat-and-grid-views)
+  - [Overview Tab](#overview-tab)
   - [Session Management](#session-management)
   - [MCP Manager Agent](#mcp-manager-agent)
   - [Headless Orchestration](#headless-orchestration)
@@ -71,6 +72,23 @@ Two ways to interact with your agents:
 - **Grid view** — Tiled overview of all agents in a project. Expandable tiles, broadcast input to all agents at once, and per-tile actions.
 
 Toggle between views with `Cmd+\` on macOS or `Ctrl+\` on Windows/Linux.
+
+### Overview Tab
+
+A third view next to Grid and Chat (`mod+shift+o`) that answers "which agents need me, and what happened while I was away?" across all projects.
+
+- **Needs you** — agents waiting on you, with what they ask (for example `Run: npm test`), how long they have waited, and a Jump button to their chat. The Overview tab shows an amber badge with this count from every view, the window title becomes `(2) Hydra`, and a "Needs you" notification is sent when an agent starts waiting.
+- **Counts** — working, idle, stale, needs you, finished and failed, each with a history chart of the last hour.
+- **Sessions** — list, repos and board layouts, a project filter, and a details drawer (last message, tokens, git branch).
+- **Last hour** and **Timeline** — status of every agent over time.
+- **Events** — newest first, with a "new since" marker for what happened while you were in another view.
+- **Waits** — how long agents waited on you today and over 7 days, per day and per agent.
+
+Detection of "needs you" is Claude-only: it reads Claude Code's session registry (`~/.claude/sessions/<pid>.json`, an undocumented format that may change). Codex and OpenCode agents show working / idle / finished / failed from terminal activity only, with no approval detection; for them (and for Claude agents Hydra cannot match to a registry entry) the older "no output for 5 seconds" notification is kept.
+
+History (events and 5 s samples) is stored by the daemon in `<userData>/overview-history` as JSONL, for 8 days and at most 20 MB. Time while Hydra's daemon was not running is shown as unmeasured.
+
+The Overview is modeled on the Overview view of [agent-lookout](https://github.com/Olanetsoft/agent-lookout) by Idris Olubisi (MIT License).
 
 ### Session Management
 

@@ -199,6 +199,8 @@ async function main(): Promise<void> {
     detailsReader: new AgentDetailsReader()
   })
 
+  notificationService.connectOverviewEvents(overviewTracker)
+
   const server = new DaemonServer({
     socketPath,
     agentManager,

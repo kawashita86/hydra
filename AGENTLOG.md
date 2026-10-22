@@ -632,3 +632,15 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 - Events are written field by field. Do not spread an event or session into a record: `waitingText` (what an agent asks, may hold commands) must never reach disk.
 - Points on disk store each agent's status as a delta against the previous written point (changed agents, `null` for gone ones, trailing `1` marks a delta). The first point of every run and of every file is the full map, so each file restores alone; on restore a delta with no full point before it in its file is skipped. Writing the full map on every point cost ~50 bytes per agent per 5 s (about 8.6 MB/day with 10 agents) and would have kept only ~2 days under the 20 MB cap, breaking the 7-day Waits. Agents finished or failed for over an hour are also left out of the points written (in-memory points keep them). Keep the in-memory `HistoryPoint` full; only the file format is delta.
 - Event pushes use their own WS message `overview:events` (not the snapshot): snapshots are only sent when sessions change, and a `resumed` or short-lived status event must reach the renderer even when the sessions end up identical.
+
+### Overview notifications: Claude agents with a registry match must not use the 5 s heuristic
+
+**Context**: `AgentManager` emits `agent_waiting` after 5 s of PTY silence, which is wrong for busy-but-quiet Claude agents (long tool runs). The accurate signal is the Overview tracker entering `needs-you`.
+
+**Do**: `DaemonNotificationService.connectOverviewEvents(tracker)` sends the "Needs you" notification from the tracker's `events` and drops the silence heuristic for Claude agents where `tracker.hasRegistryMatch(id)` is true. It must be connected after the tracker is created (the tracker is built after `connectAgentEvents` in `daemon/index.ts`); until then the heuristic stays active. Notifications reach Electron over the existing route (daemon WS `notification` message -> `NotificationService.push`), so nothing else is needed.
+
+### Overview badge: one snapshot subscription in App
+
+**Context**: The tab badge and window title need the snapshot from every view.
+
+**Do**: `App` owns `useOverviewSnapshot()` and passes it to `OverviewView` (`overview` prop). The 1 s `now` tick lives in `useNow()` inside `OverviewView`; never put it in App or the whole app re-renders every second.
