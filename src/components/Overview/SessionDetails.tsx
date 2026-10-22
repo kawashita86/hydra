@@ -18,7 +18,7 @@ export interface SessionDetailsProps {
   now: number
   onClose: () => void
   onJumpToAgent: (agentId: string) => void
-  /** Filled by Step 10: the events of this session. Nothing is rendered when absent. */
+  /** The events of this session. Nothing is rendered when absent. */
   ownEvents?: ReactNode
   /** Filled by Step 9: this session's row of the timeline. Nothing is rendered when absent. */
   timelineRow?: ReactNode

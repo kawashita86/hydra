@@ -3,12 +3,15 @@ import type { AgentState, AgentStatusPayload } from '@shared/types'
 import type {
   AgentActivity,
   AgentDetails,
+  OverviewEvent,
   OverviewSession,
   OverviewSnapshot,
   OverviewStatus
 } from '@shared/overview/types'
+import { diffSnapshots, pointFromSessions, resumedEvent } from '@shared/overview/diff'
 import { computeCounts, deriveStatus, isStale, quietForMs } from '@shared/overview/status'
 import { matchRegistryEntries, type RegistryEntry } from './claudeRegistry'
+import type { HistoryStore } from './HistoryStore'
 import type { WaitingTextReader } from './waitingText'
 import type { AgentDetailsReader, DetailsLocator } from './agentDetails'
 import type { GitInfo } from './gitInfo'
@@ -33,7 +36,11 @@ export interface OverviewTrackerDeps {
   gitInfo?: { get(projectDir: string): GitInfo | null; retain?(projectDirs: Iterable<string>): void }
   /** Reads the details drawer data on demand; optional. */
   detailsReader?: Pick<AgentDetailsReader, 'read'>
+  /** Keeps events and samples; optional. The tracker only feeds it. */
+  history?: Pick<HistoryStore, 'addEvents' | 'addPoint' | 'lastPointAt'>
   now?: () => number
+  /** Time between history points. Default 5 s. */
+  sampleIntervalMs?: number
   /** Poll interval. Default 2 s. */
   pollIntervalMs?: number
   /** Delay before re-polling after an agent status event. Default 100 ms. */
@@ -68,7 +75,9 @@ function sessionKey(s: OverviewSession): string {
 /**
  * Polls the agent manager and Claude Code's session registry and builds the
  * Overview snapshot. Emits `'snapshot'` (OverviewSnapshot) when something
- * meaningful changed, never just because time passed.
+ * meaningful changed, never just because time passed, and `'events'`
+ * (OverviewEvent[]) with the new events of a poll, which it also hands to the
+ * history store together with a point every `sampleIntervalMs`.
  */
 export class OverviewTracker extends EventEmitter {
   private readonly agentManager: OverviewAgentSource
@@ -79,7 +88,10 @@ export class OverviewTracker extends EventEmitter {
   private readonly gitInfo: OverviewTrackerDeps['gitInfo']
   private readonly detailsReader: OverviewTrackerDeps['detailsReader']
   private readonly locators = new Map<string, DetailsLocator>()
+  private readonly history: OverviewTrackerDeps['history']
   private readonly now: () => number
+  private readonly sampleIntervalMs: number
+  private lastSampleAt: number | null = null
   private readonly pollIntervalMs: number
   private readonly statusDebounceMs: number
 
@@ -109,7 +121,9 @@ export class OverviewTracker extends EventEmitter {
     this.waitingTextReader = deps.waitingTextReader
     this.gitInfo = deps.gitInfo
     this.detailsReader = deps.detailsReader
+    this.history = deps.history
     this.now = deps.now ?? Date.now
+    this.sampleIntervalMs = deps.sampleIntervalMs ?? 5000
     this.pollIntervalMs = deps.pollIntervalMs ?? 2000
     this.statusDebounceMs = deps.statusDebounceMs ?? 100
   }
@@ -168,6 +182,30 @@ export class OverviewTracker extends EventEmitter {
       }
     })()
     return this.inflight
+  }
+
+  /** Diffs against the previous poll, feeds the history, and returns the new events. */
+  private record(prev: OverviewSession[] | null, sessions: OverviewSession[], now: number): OverviewEvent[] {
+    const events = diffSnapshots(prev, sessions, now)
+    if (!this.history) return events
+    try {
+      if (this.lastSampleAt === null || now - this.lastSampleAt >= this.sampleIntervalMs) {
+        // A long time since the last point, restored from disk or from this run: watching resumed after a gap.
+        const resumed = resumedEvent(this.history.lastPointAt(), now)
+        if (resumed) events.unshift(resumed)
+        this.lastSampleAt = now
+        const agents = Object.fromEntries(
+          sessions.map((s) => [s.agentId, { name: s.name, projectDir: s.projectDir }])
+        )
+        this.history.addEvents(events)
+        this.history.addPoint(pointFromSessions(sessions, now), agents)
+      } else {
+        this.history.addEvents(events)
+      }
+    } catch (err) {
+      console.warn('[overview] cannot record history:', err)
+    }
+    return events
   }
 
   private async poll(): Promise<OverviewSnapshot> {
@@ -246,7 +284,9 @@ export class OverviewTracker extends EventEmitter {
     this.gitInfo?.retain?.(agents.map((a) => a.projectDir))
 
     const snapshot: OverviewSnapshot = { at: now, sessions, counts: computeCounts(sessions, now) }
+    const events = this.record(this.snapshot?.sessions ?? null, sessions, now)
     this.snapshot = snapshot
+    if (events.length > 0 && this.running) this.emit('events', events)
     const key = sessions.map(sessionKey).join('\n')
     if (key !== this.lastKey) {
       this.lastKey = key

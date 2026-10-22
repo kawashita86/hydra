@@ -226,6 +226,12 @@ app.whenReady().then(async () => {
       })
     })
 
+    daemonClient.on('overview:events', (events) => {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        win.webContents.send(IPC.OVERVIEW_EVENTS, events)
+      })
+    })
+
     daemonClient.on('notification', (notification) => {
       notificationService.push(notification)
     })

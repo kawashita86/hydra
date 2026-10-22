@@ -5,7 +5,7 @@ import { formatDuration, projectName } from './format'
 import { EmptyState } from './Card'
 import styles from './NeedsYouPanel.module.css'
 
-/** TODO(Step 8): the last wait that ended, from the events history. */
+/** The last wait that ended, from the events history. */
 export interface LastWait {
   name: string
   waitedMs: number
@@ -21,7 +21,7 @@ interface NeedsYouPanelProps {
   onJumpToAgent: (agentId: string) => void
   /** Opens the details drawer; the agent name becomes a button when given. */
   onOpenDetails?: (agentId: string, trigger: HTMLElement | null) => void
-  /** TODO(Step 8): rendered in the empty state when provided. */
+  /** Rendered in the empty state when provided. */
   lastWait?: LastWait
 }
 

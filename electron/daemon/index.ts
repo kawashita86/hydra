@@ -30,6 +30,7 @@ import { ProcessTableReader } from '../overview/processTree'
 import { WaitingTextReader } from '../overview/waitingText'
 import { AgentDetailsReader } from '../overview/agentDetails'
 import { GitInfoCache } from '../overview/gitInfo'
+import { HistoryStore } from '../overview/HistoryStore'
 import { discoverClaudeConfigDirs } from '../sessions/claudeProfiles'
 import { fixPath } from '../util/fix-path'
 
@@ -173,6 +174,7 @@ async function main(): Promise<void> {
     workspaceStore.setAgents(agentManager.exportWorkspaceAgents())
     agentManager.killAll()
     overviewTracker.stop()
+    overviewHistory.stop() // flushes what is buffered
     mcpServer?.stop()
     server.stop()
     removeLockFile(lockPath)
@@ -182,7 +184,12 @@ async function main(): Promise<void> {
 
   const skillScanner = new SkillScanner()
 
+  // Single writer: this daemon is single-instance (see ./lock.ts), so the history folder needs no lock.
+  const overviewHistory = new HistoryStore({ dir: join(userDataPath, 'overview-history') })
+  overviewHistory.start()
+
   const overviewTracker = new OverviewTracker({
+    history: overviewHistory,
     agentManager,
     registryReader: new ClaudeRegistryReader(),
     processTableReader: new ProcessTableReader(),
@@ -204,6 +211,7 @@ async function main(): Promise<void> {
     mcpServer,
     skillScanner,
     overviewTracker,
+    overviewHistory,
     onShutdown: shutdown
   })
 

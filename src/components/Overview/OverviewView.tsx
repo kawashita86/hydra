@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { computeCounts } from '@shared/overview/status'
 import { useOverview } from '@/hooks/useOverview'
+import { useOverviewHistory } from '@/hooks/useOverviewHistory'
 import { Card, EmptyState } from './Card'
 import { CountsRow } from './CountsRow'
 import { projectName } from './format'
+import { lastWaitFrom } from './historyFacts'
 import { NeedsYouPanel } from './NeedsYouPanel'
+import { OwnEvents } from './OwnEvents'
 import { SessionDetails } from './SessionDetails'
 import { SessionsCard } from './SessionsCard'
 import styles from './OverviewView.module.css'
@@ -43,6 +46,7 @@ function plural(n: number, one: string, many: string): string {
 
 export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProps) {
   const { snapshot, loading, error, now } = useOverview()
+  const { history } = useOverviewHistory()
   const [storedFilter, setStoredFilter] = useState<string>(readStoredFilter)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
@@ -81,6 +85,12 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
     [allSessions, filter]
   )
   const counts = useMemo(() => computeCounts(sessions, now), [sessions, now])
+  const historyEvents = history?.events
+  const lastWait = useMemo(() => {
+    if (!historyEvents) return undefined
+    const ids = new Set(sessions.map((s) => s.agentId))
+    return lastWaitFrom(historyEvents.filter((e) => ids.has(e.agentId)), now)
+  }, [historyEvents, sessions, now])
 
   const handleFilterChange = (value: string) => {
     setStoredFilter(value)
@@ -166,6 +176,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
               showProvider={multipleProviders}
               onJumpToAgent={jump}
               onOpenDetails={openDetails}
+              lastWait={lastWait}
             />
             <CountsRow counts={counts} />
           </div>
@@ -205,6 +216,7 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent }: OverviewViewProp
           now={now}
           onClose={closeDetails}
           onJumpToAgent={jump}
+          ownEvents={<OwnEvents events={history?.events ?? []} agentId={selectedId} now={now} />}
         />
       )}
     </div>

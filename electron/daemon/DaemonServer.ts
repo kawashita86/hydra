@@ -5,7 +5,7 @@ import { homedir } from 'os'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
 import { AgentManager } from '../agents/AgentManager'
 import type { OverviewTracker } from '../overview/OverviewTracker'
-import type { OverviewSnapshot } from '@shared/overview/types'
+import type { HistoryResponse, OverviewEvent, OverviewSnapshot } from '@shared/overview/types'
 import { MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
 import type { ConfigStore } from '../config/ConfigStore'
 import type { SessionCatalog } from '../sessions/SessionCatalog'
@@ -30,6 +30,11 @@ import type {
 } from '@shared/types'
 
 /** Return the appropriate shell and args for the current platform. */
+function emptyHistory(): HistoryResponse {
+  const now = Date.now()
+  return { since: now, startedAt: now, starts: [now], points: [], events: [], agents: {} }
+}
+
 function getShellConfig(): { shell: string; shellArgs: string[] } {
   if (process.platform === 'win32') {
     const shell = process.env.COMSPEC || 'powershell.exe'
@@ -71,6 +76,8 @@ interface DaemonServerOptions {
   mcpServer: HydraMcpServer | null
   skillScanner: SkillScanner
   overviewTracker: OverviewTracker
+  /** Answers `GET /overview/history`; without it the route answers an empty history. */
+  overviewHistory?: { query(sinceMs: number): HistoryResponse }
   onShutdown: () => void
 }
 
@@ -89,6 +96,7 @@ export class DaemonServer {
   private readonly mcpServer: HydraMcpServer | null
   private readonly skillScanner: SkillScanner
   private readonly overviewTracker: OverviewTracker
+  private readonly overviewHistory: DaemonServerOptions['overviewHistory']
   private readonly onShutdown: () => void
   private readonly startedAt = Date.now()
   private testPty: IPty | null = null
@@ -110,6 +118,7 @@ export class DaemonServer {
     this.mcpServer = options.mcpServer
     this.skillScanner = options.skillScanner
     this.overviewTracker = options.overviewTracker
+    this.overviewHistory = options.overviewHistory
     this.onShutdown = options.onShutdown
   }
 
@@ -146,6 +155,10 @@ export class DaemonServer {
 
     this.overviewTracker.on('snapshot', (snapshot: OverviewSnapshot) => {
       this.broadcast({ type: 'overview:snapshot', payload: snapshot })
+    })
+
+    this.overviewTracker.on('events', (events: OverviewEvent[]) => {
+      this.broadcast({ type: 'overview:events', payload: events })
     })
 
     this.agentManager.on('agent_waiting', (payload: { agentId: string }) => {
@@ -419,6 +432,12 @@ export class DaemonServer {
       // ── Agents ──────────────────────────────────────────────────────────
       if (method === 'GET' && path === '/overview') {
         return this.json(res, 200, await this.overviewTracker.getSnapshot())
+      }
+
+      if (method === 'GET' && path === '/overview/history') {
+        const since = Number(url.searchParams.get('since'))
+        const sinceMs = Number.isFinite(since) && since > 0 ? since : 0
+        return this.json(res, 200, this.overviewHistory?.query(sinceMs) ?? emptyHistory())
       }
 
       const detailsMatch = method === 'GET' ? path.match(/^\/overview\/agents\/([^/]+)\/details$/) : null

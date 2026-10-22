@@ -78,14 +78,22 @@ export interface OverviewSnapshot {
 
 /** A change worth logging (Step 8). */
 export interface OverviewEvent {
+  /** Unique and stable, `<agentId>@<at>:<kind>` (`resumed@<at>` for gaps). */
+  id: string
   at: number
-  kind: 'appeared' | 'status' | 'ended' | 'stopped-by-user'
+  /** `resumed`: watching resumed after an unmeasured gap of `gapMs`; it has no agent. */
+  kind: 'appeared' | 'status' | 'ended' | 'resumed'
+  /** `''` for `resumed`. */
   agentId: string
   name: string
+  projectDir: string
   from?: OverviewStatus
   to?: OverviewStatus
+  waitingReason?: WaitingReason
   /** Set when leaving `needs-you`: how long the user was waited on. */
   waitedMs?: number
+  /** Set on `resumed`: how long nothing was measured. */
+  gapMs?: number
 }
 
 /** One 5 s sample of the counts per status (Step 8). */
@@ -95,6 +103,29 @@ export interface HistoryPoint {
   working: number
   idle: number
   total: number
+  /** Status per agent, for the Timeline. Names live in `HistoryResponse.agents`. */
+  statuses: Record<string, OverviewStatus>
+}
+
+/** What the history response knows about an agent that appears in its points or events. */
+export interface HistoryAgent {
+  name: string
+  projectDir: string
+}
+
+/** Answer of `GET /overview/history?since=<ms>`. */
+export interface HistoryResponse {
+  /** Where the history held begins; time before it is unmeasured. */
+  since: number
+  /** When this run of the daemon started watching. */
+  startedAt: number
+  /** Each start of the daemon (restored from disk and this run's), oldest first. */
+  starts: number[]
+  /** Oldest first. */
+  points: HistoryPoint[]
+  /** Oldest first. */
+  events: OverviewEvent[]
+  agents: Record<string, HistoryAgent>
 }
 
 /** Time agents waited on the user (Step 11). */

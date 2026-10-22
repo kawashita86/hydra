@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/types'
 import type { KeybindingRule } from '@shared/keybindings'
-import type { AgentDetails, OverviewSnapshot } from '@shared/overview/types'
+import type { AgentDetails, HistoryResponse, OverviewEvent, OverviewSnapshot } from '@shared/overview/types'
 import type {
   CreateAgentPayload,
   AgentState,
@@ -106,6 +106,15 @@ const hydraApi = {
 
   getOverviewAgentDetails: (agentId: string): Promise<AgentDetails | null> =>
     ipcRenderer.invoke(IPC.OVERVIEW_AGENT_DETAILS, agentId),
+
+  getOverviewHistory: (sinceMs: number): Promise<HistoryResponse> =>
+    ipcRenderer.invoke(IPC.OVERVIEW_HISTORY, sinceMs),
+
+  onOverviewEvents: (callback: (events: OverviewEvent[]) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, events: OverviewEvent[]) => callback(events)
+    ipcRenderer.on(IPC.OVERVIEW_EVENTS, handler)
+    return () => { ipcRenderer.removeListener(IPC.OVERVIEW_EVENTS, handler) }
+  },
 
   onOverviewSnapshot: (callback: (snapshot: OverviewSnapshot) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, snapshot: OverviewSnapshot) =>

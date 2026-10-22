@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AgentState } from '@shared/types'
-import type { AgentActivity, OverviewSnapshot } from '@shared/overview/types'
+import type { AgentActivity, HistoryPoint, OverviewEvent, OverviewSnapshot } from '@shared/overview/types'
 import { STALE_AFTER_MS } from '@shared/overview/status'
 import { OverviewTracker } from './OverviewTracker'
 import type { RegistryEntry } from './claudeRegistry'
@@ -280,5 +280,89 @@ describe('OverviewTracker', () => {
       provider: 'claude', sessionId: 's1', projectDir: '/work/proj', configDir: '/cfg'
     })
     expect(tracker.getDetails('nope')).toBeNull()
+  })
+  describe('history', () => {
+    let points: HistoryPoint[]
+    let recorded: OverviewEvent[]
+    let pushed: OverviewEvent[][]
+    let lastPointAt: number | null
+    const begin = (): void => tracker.start()
+
+    beforeEach(() => {
+      points = []
+      recorded = []
+      pushed = []
+      lastPointAt = null
+      tracker.stop()
+      tracker = new OverviewTracker({
+        agentManager: manager,
+        registryReader: { read: readRegistry },
+        processTableReader: { read: readTable },
+        configDirs: () => ['/cfg'],
+        history: {
+          addEvents: (e) => recorded.push(...e),
+          addPoint: (p) => {
+            points.push(p)
+            lastPointAt = p.at
+          },
+          lastPointAt: () => lastPointAt
+        },
+        now: () => clock
+      })
+      tracker.on('events', (e: OverviewEvent[]) => pushed.push(e))
+      manager.agents = [makeAgent()]
+      manager.activity.set('a1', { lastOutputAt: clock, lastExitCode: null })
+    })
+
+    it('records no event for agents that exist at the first poll, and a point', async () => {
+      begin()
+      await tracker.refresh()
+      expect(recorded).toEqual([])
+      expect(points).toHaveLength(1)
+      expect(points[0]).toMatchObject({ at: clock, working: 1, total: 1, statuses: { a1: 'working' } })
+    })
+
+    it('records and pushes status changes, appeared and ended agents', async () => {
+      begin()
+      await tracker.refresh()
+      clock += 10_000
+      manager.agents.push(makeAgent({ id: 'a2', name: 'second' }))
+      manager.activity.set('a2', { lastOutputAt: clock, lastExitCode: null })
+      await tracker.refresh() // a1 went idle, a2 appeared
+      expect(recorded.map((e) => [e.agentId, e.kind])).toEqual([
+        ['a1', 'status'],
+        ['a2', 'appeared']
+      ])
+      expect(pushed).toEqual([recorded])
+      clock += 2000
+      manager.agents = [manager.agents[1]]
+      await tracker.refresh()
+      expect(recorded.at(-1)).toMatchObject({ agentId: 'a1', kind: 'ended' })
+      expect(pushed).toHaveLength(2)
+    })
+
+    it('samples every 5 s, not on every poll', async () => {
+      begin()
+      await tracker.refresh()
+      clock += 2000
+      await tracker.refresh()
+      clock += 2000
+      await tracker.refresh()
+      expect(points).toHaveLength(1)
+      clock += 2000
+      await tracker.refresh()
+      expect(points).toHaveLength(2)
+    })
+
+    it('adds a resumed event after a gap of more than 15 s since the last point', async () => {
+      lastPointAt = clock - 120_000 // restored from disk
+      begin()
+      await tracker.refresh()
+      expect(recorded).toMatchObject([{ kind: 'resumed', agentId: '', gapMs: 120_000, at: clock }])
+      expect(pushed).toHaveLength(1)
+      clock += 6000
+      await tracker.refresh()
+      expect(recorded.filter((e) => e.kind === 'resumed')).toHaveLength(1)
+    })
   })
 })

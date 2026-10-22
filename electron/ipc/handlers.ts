@@ -274,6 +274,10 @@ export function registerIpcHandlers(
     return getDaemonClient().getOverview()
   })
 
+  ipcMain.handle(IPC.OVERVIEW_HISTORY, async (_event, sinceMs: number) => {
+    return getDaemonClient().getOverviewHistory(z.number().finite().parse(sinceMs))
+  })
+
   ipcMain.handle(IPC.OVERVIEW_AGENT_DETAILS, async (_event, agentId: string) => {
     return getDaemonClient().getOverviewAgentDetails(agentIdSchema.parse(agentId))
   })
