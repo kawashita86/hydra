@@ -97,6 +97,36 @@ describe('SessionsCard', () => {
     expect(within(screen.getByRole('region', { name: 'Idle' })).getByText('Nothing idle')).toBeTruthy()
   })
 
+  it('shows 10 finished rows, then "Show 2 more" expands and "Show less" collapses', () => {
+    const many = Array.from({ length: 12 }, (_, i) => s(`f${i}`, 'finished', { statusSince: NOW - i * 1000 }))
+    renderCard(many)
+    const group = screen.getByRole('region', { name: 'Finished / Failed' })
+    expect(within(group).getAllByRole('listitem')).toHaveLength(10)
+    expect(within(group).getByRole('heading', { level: 4 }).textContent).toBe('Finished / Failed12')
+    const more = within(group).getByRole('button', { name: 'Show 2 more' })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(more)
+    expect(within(group).getAllByRole('listitem')).toHaveLength(12)
+    const less = within(group).getByRole('button', { name: 'Show less' })
+    expect(less.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(less)
+    expect(within(group).getAllByRole('listitem')).toHaveLength(10)
+  })
+
+  it('does not cap the Repos layout', () => {
+    window.localStorage.setItem(LAYOUT_STORAGE_KEY, 'repos')
+    renderCard(Array.from({ length: 12 }, (_, i) => s(`f${i}`, 'finished', { projectDir: '/work/same' })))
+    expect(screen.queryByRole('button', { name: /Show/ })).toBeNull()
+  })
+
+  it('notes not-running sessions under the board ended column', () => {
+    window.localStorage.setItem(LAYOUT_STORAGE_KEY, 'board')
+    renderCard([s('a', 'finished'), s('b', 'not-running'), s('c', 'not-running')])
+    const ended = screen.getByRole('region', { name: 'Finished / Failed' })
+    expect(within(ended).getByText('2 not running, in the list')).toBeTruthy()
+    expect(within(ended).queryByText('agent-b')).toBeNull()
+  })
+
   it('opens details on a row click but not when Jump is clicked', () => {
     const onOpen = vi.fn()
     const onJump = vi.fn()

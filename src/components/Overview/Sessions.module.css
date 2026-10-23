@@ -125,6 +125,21 @@
   background: var(--color-accent-subtle);
 }
 
+/* "Show N more" / "Show less" under a capped group. */
+.showMore {
+  align-self: flex-start;
+  padding: 2px var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: transparent;
+  border-radius: var(--radius-md);
+}
+
+.showMore:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-accent-subtle);
+}
+
 /* ── List and Repos ────────────────────────────────────────────────────── */
 
 /* Long lists scroll inside the card instead of stretching the page. */

@@ -55,27 +55,50 @@ function Groups({
   repos: boolean
   selectedId: string | null
 } & Omit<SessionsCardProps, 'sessions' | 'selectedId'>) {
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
+  const toggle = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
+
   return (
     <div className={styles.listWrap}>
-      {groups.map((group) => (
-        <section key={group.key} className={styles.group} aria-label={group.label}>
-          <h4 className={styles.groupHeading}>
-            <span>{group.label}</span>
-            <span className={styles.groupCount}>{group.sessions.length}</span>
-          </h4>
-          <ul className={styles.rows}>
-            {group.sessions.map((s) => (
-              <SessionRow
-                key={s.agentId}
-                session={s}
-                selected={s.agentId === selectedId}
-                hideFolder={repos && folderOf(s) === group.label}
-                {...rest}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
+      {groups.map((group) => {
+        const capped = group.limit !== undefined && group.sessions.length > group.limit
+        const open = expanded.has(group.key)
+        const shown = capped && !open ? group.sessions.slice(0, group.limit) : group.sessions
+        return (
+          <section key={group.key} className={styles.group} aria-label={group.label}>
+            <h4 className={styles.groupHeading}>
+              <span>{group.label}</span>
+              <span className={styles.groupCount}>{group.sessions.length}</span>
+            </h4>
+            <ul className={styles.rows}>
+              {shown.map((s) => (
+                <SessionRow
+                  key={s.agentId}
+                  session={s}
+                  selected={s.agentId === selectedId}
+                  hideFolder={repos && folderOf(s) === group.label}
+                  {...rest}
+                />
+              ))}
+            </ul>
+            {capped && (
+              <button
+                type="button"
+                className={styles.showMore}
+                aria-expanded={open}
+                onClick={() => toggle(group.key)}
+              >
+                {open ? 'Show less' : `Show ${group.sessions.length - shown.length} more`}
+              </button>
+            )}
+          </section>
+        )
+      })}
     </div>
   )
 }

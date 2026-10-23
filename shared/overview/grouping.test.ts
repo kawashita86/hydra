@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { boardColumns, groupByRepo, groupByStatus, NO_REPOSITORY } from './grouping'
+import { boardColumns, ENDED_GROUP_LIMIT, groupByRepo, groupByStatus, NO_REPOSITORY } from './grouping'
 import type { OverviewSession } from './types'
 
 function s(id: string, status: OverviewSession['status'], extra: Partial<OverviewSession> = {}): OverviewSession {
@@ -51,6 +51,46 @@ describe('groupByStatus', () => {
   })
 })
 
+describe('ended ordering and limits', () => {
+  it('sorts ended groups newest first and keeps working and idle ascending', () => {
+    const groups = groupByStatus([
+      s('f-old', 'finished', { statusSince: 10 }),
+      s('f-new', 'finished', { statusSince: 30 }),
+      s('x-fail', 'failed', { statusSince: 5 }),
+      s('nr-old', 'not-running', { statusSince: 1 }),
+      s('nr-new', 'not-running', { statusSince: 2 }),
+      s('w-new', 'working', { statusSince: 20 }),
+      s('w-old', 'working', { statusSince: 10 }),
+      s('i-new', 'idle', { statusSince: 20 }),
+      s('i-old', 'idle', { statusSince: 10 })
+    ])
+    const ids = (key: string) => groups.find((g) => g.key === key)?.sessions.map((x) => x.agentId)
+    expect(ids('ended')).toEqual(['x-fail', 'f-new', 'f-old'])
+    expect(ids('not-running')).toEqual(['nr-new', 'nr-old'])
+    expect(ids('working')).toEqual(['w-old', 'w-new'])
+    expect(ids('idle')).toEqual(['i-old', 'i-new'])
+  })
+
+  it('sets the limit on ended and not-running groups only', () => {
+    const groups = groupByStatus([
+      s('w', 'working'),
+      s('i', 'idle'),
+      s('f', 'finished'),
+      s('nr', 'not-running'),
+      s('st', 'starting')
+    ])
+    expect(Object.fromEntries(groups.map((g) => [g.key, g.limit]))).toEqual({
+      working: undefined,
+      idle: undefined,
+      ended: ENDED_GROUP_LIMIT,
+      'not-running': ENDED_GROUP_LIMIT,
+      starting: undefined
+    })
+    expect(ENDED_GROUP_LIMIT).toBe(10)
+    expect(groupByRepo([s('f', 'finished')], () => 'r')[0].limit).toBeUndefined()
+  })
+})
+
 describe('groupByRepo', () => {
   it('sorts repositories, puts "No repository" last and keeps status order', () => {
     const repo = (x: OverviewSession) => ({ a: 'zeta', b: 'alpha', c: 'alpha' })[x.agentId] ?? null
@@ -73,5 +113,12 @@ describe('boardColumns', () => {
     expect(by['needs-you'].total).toBe(1)
     expect(by.ended.items.map((x) => x.agentId)).toEqual(['f', 'x'])
     expect(cols.flatMap((c) => c.items).some((x) => x.agentId === 'nr')).toBe(false)
+    expect(by.ended.notRunning).toBe(1)
+    expect(by.working.notRunning).toBeUndefined()
+  })
+
+  it('lists the newest ended sessions first', () => {
+    const cols = boardColumns([s('o', 'finished', { statusSince: 1 }), s('n', 'finished', { statusSince: 9 })])
+    expect(cols[3].items.map((x) => x.agentId)).toEqual(['n', 'o'])
   })
 })
