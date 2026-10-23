@@ -84,6 +84,10 @@
   --color-accent-text: #FFFFFF;
   --color-accent-subtle: rgba(217, 119, 87, 0.1);
 
+  /* Usage providers (Claude stays terracotta in every theme) */
+  --color-provider-claude: #D97757;
+  --color-provider-codex: #4A86D9;
+
   --color-text-primary: #2D2420;
   --color-text-secondary: #7A6F66;
   --color-text-muted: #B0A79E;
@@ -134,6 +138,10 @@
   --color-accent-text: #262624;
   --color-accent-subtle: rgba(224, 139, 109, 0.12);
 
+  /* Usage providers (Claude stays terracotta in every theme) */
+  --color-provider-claude: #E08B6D;
+  --color-provider-codex: #64A6F0;
+
   --color-text-primary: #E8E4E0;
   --color-text-secondary: #A8A49E;
   --color-text-muted: #6B6760;
@@ -183,6 +191,10 @@
   --color-accent-hover: #D4D4D4;
   --color-accent-text: #191919;
   --color-accent-subtle: rgba(255, 255, 255, 0.08);
+
+  /* Usage providers (Claude stays terracotta in every theme) */
+  --color-provider-claude: #E08B6D;
+  --color-provider-codex: #79B8FF;
 
   --color-text-primary: #E8E8E8;
   --color-text-secondary: #A0A0A0;
