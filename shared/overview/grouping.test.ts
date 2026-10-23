@@ -29,9 +29,16 @@ describe('groupByStatus', () => {
       s('stale', 'idle', { stale: true }),
       s('idle', 'idle'),
       s('fail', 'failed'),
-      s('work', 'working')
+      s('work', 'working'),
+      s('nr', 'not-running')
     ])
-    expect(groups.map((g) => g.label)).toEqual(['Working', 'Idle', 'Finished / Failed', 'Starting'])
+    expect(groups.map((g) => g.label)).toEqual([
+      'Working',
+      'Idle',
+      'Finished / Failed',
+      'Not running',
+      'Starting'
+    ])
     expect(groups[1].sessions.map((x) => x.agentId)).toEqual(['idle', 'stale'])
     expect(groups[2].sessions.map((x) => x.agentId)).toEqual(['fail', 'fin'])
     expect(groups.flatMap((g) => g.sessions).some((x) => x.agentId === 'need')).toBe(false)
@@ -57,7 +64,7 @@ describe('boardColumns', () => {
   it('caps columns, counts hidden and separates stale idle', () => {
     const many = Array.from({ length: 7 }, (_, i) => s(`w${i}`, 'working'))
     const idles = [s('i1', 'idle', { stale: true }), s('i2', 'idle')]
-    const cols = boardColumns([...many, ...idles, s('n', 'needs-you'), s('f', 'failed'), s('x', 'finished')])
+    const cols = boardColumns([...many, ...idles, s('n', 'needs-you'), s('f', 'failed'), s('x', 'finished'), s('nr', 'not-running')])
     const by = Object.fromEntries(cols.map((c) => [c.key, c]))
     expect(by.working.items).toHaveLength(5)
     expect(by.working.hidden).toBe(2)
@@ -65,5 +72,6 @@ describe('boardColumns', () => {
     expect(by.idle.stale).toBe(1)
     expect(by['needs-you'].total).toBe(1)
     expect(by.ended.items.map((x) => x.agentId)).toEqual(['f', 'x'])
+    expect(cols.flatMap((c) => c.items).some((x) => x.agentId === 'nr')).toBe(false)
   })
 })

@@ -1,6 +1,7 @@
 // Adapted from agent-lookout (MIT, © 2026 Idris Olubisi): src/dashboard/components/panels/SessionPanel.tsx, LastMessage.tsx, TokensFact.tsx
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { isEnded } from '@shared/overview/status'
 import type { AgentDetails, OverviewSession } from '@shared/overview/types'
 import { formatClock, formatCount, formatDuration } from './format'
 import { reasonLabel } from './NeedsYouPanel'
@@ -134,7 +135,7 @@ export function SessionDetails({
 
   const branch = branchOf(shown)
   const quiet = quietText(shown, now)
-  const open = shown.status !== 'finished' && shown.status !== 'failed'
+  const open = !isEnded(shown.status)
   const message = details?.lastMessage
 
   return (

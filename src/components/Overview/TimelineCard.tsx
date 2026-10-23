@@ -10,7 +10,7 @@ import own from './TimelineCard.module.css'
 
 const COARSE_MS = 5000
 const ROW_HEIGHT = 14
-const LEGEND: OverviewStatus[] = ['needs-you', 'working', 'idle', 'starting', 'finished', 'failed']
+const LEGEND: OverviewStatus[] = ['needs-you', 'working', 'idle', 'starting', 'finished', 'not-running', 'failed']
 
 function statusClass(status: Segment['status']): string {
   return status === 'unmeasured' ? '' : styles[`s_${status.replace('-', '_')}`]
@@ -89,7 +89,7 @@ export function useTimelineRows(
     }
     const segs = timelineSegments(points, starts, [...ids], coarse, HOUR_MS)
     const rows = [...ids]
-      .filter((id) => segs[id].length > 0)
+      .filter((id) => segs[id].some((s) => s.status !== 'not-running' && s.status !== 'unmeasured'))
       .map((id) => ({ agentId: id, name: agents[id]?.name ?? id, segments: segs[id] }))
       .sort((a, b) => a.name.localeCompare(b.name))
     return { rows, windowEnd: coarse }

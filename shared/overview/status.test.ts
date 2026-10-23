@@ -6,6 +6,7 @@ import {
   STALE_AFTER_MS,
   computeCounts,
   deriveStatus,
+  isEnded,
   isStale,
   mapClaudeRegistryStatus,
   quietForMs
@@ -107,8 +108,13 @@ describe('deriveStatus', () => {
     })
   })
 
-  it('idle (exited) -> finished', () => {
-    expect(deriveStatus(agent('idle'), recent, null, NOW)).toEqual({ status: 'finished' })
+  it('idle (exited in this run) -> finished', () => {
+    const exited = { lastOutputAt: NOW - 1000, lastExitCode: 0 }
+    expect(deriveStatus(agent('idle'), exited, null, NOW)).toEqual({ status: 'finished' })
+  })
+
+  it('idle (never ran in this run) -> not-running', () => {
+    expect(deriveStatus(agent('idle'), recent, null, NOW)).toEqual({ status: 'not-running' })
   })
 
   it('errored -> failed', () => {
@@ -148,6 +154,13 @@ describe('deriveStatus', () => {
     const at = (ms: number) => ({ lastOutputAt: NOW - ms, lastExitCode: null })
     expect(deriveStatus(agent('running', 'codex'), at(4999), null, NOW).status).toBe('working')
     expect(deriveStatus(agent('running', 'codex'), at(5000), null, NOW).status).toBe('idle')
+  })
+})
+
+describe('isEnded', () => {
+  it('is true for finished, failed and not-running only', () => {
+    for (const s of ['finished', 'failed', 'not-running'] as const) expect(isEnded(s)).toBe(true)
+    for (const s of ['needs-you', 'working', 'idle', 'starting'] as const) expect(isEnded(s)).toBe(false)
   })
 })
 
@@ -207,6 +220,7 @@ describe('computeCounts', () => {
       open: 0,
       finished: 0,
       failed: 0,
+      notRunning: 0,
       total: 0,
       longestWorkingMs: null,
       longestIdleMs: null
@@ -224,7 +238,8 @@ describe('computeCounts', () => {
         session('idle', STALE_AFTER_MS + 5, true),
         session('starting', 1),
         session('finished', 1),
-        session('failed', 1)
+        session('failed', 1),
+        session('not-running', 1)
       ],
       NOW
     )
@@ -236,7 +251,8 @@ describe('computeCounts', () => {
       open: 7,
       finished: 1,
       failed: 1,
-      total: 9,
+      notRunning: 1,
+      total: 10,
       longestWorkingMs: 5000,
       longestIdleMs: 9000
     })

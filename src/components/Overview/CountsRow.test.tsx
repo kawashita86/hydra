@@ -13,6 +13,7 @@ const counts: OverviewCounts = {
   open: 6,
   finished: 2,
   failed: 1,
+  notRunning: 0,
   total: 9,
   longestWorkingMs: 724_000,
   longestIdleMs: null
@@ -29,6 +30,11 @@ describe('CountsRow', () => {
     expect(screen.getByText('Stale').nextElementSibling?.textContent).toBe('1')
     expect(screen.getByText('Agents').nextElementSibling?.textContent).toBe('9')
     expect(screen.getByText('6 open · 2 finished · 1 failed')).toBeTruthy()
+  })
+
+  it('shows the not running count only when above zero', () => {
+    const { container } = render(<CountsRow counts={{ ...counts, notRunning: 4 }} />)
+    expect(container.textContent).toContain('1 failed · 4 not running')
   })
 
   it('shows a dash when a duration is missing', () => {

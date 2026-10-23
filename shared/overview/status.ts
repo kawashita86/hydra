@@ -84,7 +84,7 @@ export function deriveStatus(
     case 'starting':
       return { status: 'starting' }
     case 'idle':
-      return { status: 'finished' }
+      return { status: activity.lastExitCode === null ? 'not-running' : 'finished' }
     case 'errored':
       return { status: 'failed' }
     case 'running': {
@@ -96,6 +96,11 @@ export function deriveStatus(
       return { status: active ? 'working' : 'idle' }
     }
   }
+}
+
+/** Whether the process of a session with this status is over (or never ran). */
+export function isEnded(status: OverviewStatus): boolean {
+  return status === 'finished' || status === 'failed' || status === 'not-running'
 }
 
 /** Idle for at least 24 h. */
@@ -124,6 +129,7 @@ export function computeCounts(sessions: OverviewSession[], now: number): Overvie
     open: 0,
     finished: 0,
     failed: 0,
+    notRunning: 0,
     total: sessions.length,
     longestWorkingMs: null,
     longestIdleMs: null
@@ -152,8 +158,11 @@ export function computeCounts(sessions: OverviewSession[], now: number): Overvie
       case 'failed':
         counts.failed++
         break
+      case 'not-running':
+        counts.notRunning++
+        break
     }
-    if (s.status !== 'finished' && s.status !== 'failed') counts.open++
+    if (!isEnded(s.status)) counts.open++
   }
   return counts
 }

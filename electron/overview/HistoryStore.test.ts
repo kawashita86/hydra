@@ -390,6 +390,18 @@ describe('HistoryStore status deltas', () => {
     expect(written[1]).toBe(`{"point":[${T0 + 3_600_001},0,1,0,1,{"done":null,"bad":null},1]}`)
     expect(Object.keys(store.query(0).points[1].statuses)).toHaveLength(3)
   })
+
+  it('does not write not-running agents to disk, but keeps them in memory', () => {
+    const fs = new MemoryFs()
+    const { store } = setup(fs)
+    store.start()
+    store.addPoint(point(T0, { statuses: { run: 'working', stopped: 'not-running' } }))
+    store.flush()
+    const written = lines(fs, FILE).filter((l) => l.startsWith('{"point"'))
+    expect(written[0]).toContain('"run":"working"')
+    expect(written[0]).not.toContain('stopped')
+    expect(Object.keys(store.query(0).points[0].statuses)).toHaveLength(2)
+  })
 })
 
 describe('HistoryStore wait ledger', () => {

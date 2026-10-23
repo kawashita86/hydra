@@ -157,8 +157,46 @@ describe('OverviewTracker', () => {
 
   it('maps finished and failed from the process status', async () => {
     manager.agents = [makeAgent({ id: 'f', status: 'idle', pid: null }), makeAgent({ id: 'e', status: 'errored', pid: null })]
+    manager.activity.set('f', { lastOutputAt: 0, lastExitCode: 0 })
     const snap = await tracker.refresh()
     expect(snap.sessions.map((s) => s.status)).toEqual(['finished', 'failed'])
+  })
+
+  it('shows restored agents as not-running since their endedAt, falling back to lastActivityAt', async () => {
+    manager.agents = [
+      makeAgent({ id: 'r1', status: 'idle', pid: null, endedAt: new Date(500_000).toISOString() }),
+      makeAgent({ id: 'r2', status: 'idle', pid: null, endedAt: null, lastActivityAt: new Date(700_000).toISOString() }),
+      makeAgent({ id: 'r3', status: 'idle', pid: null, endedAt: null, lastActivityAt: 'garbage' })
+    ]
+    const snap = await tracker.refresh()
+    expect(snap.sessions.map((s) => s.status)).toEqual(['not-running', 'not-running', 'not-running'])
+    expect(snap.sessions.map((s) => s.statusSince)).toEqual([500_000, 700_000, clock])
+    expect(snap.sessions[0].endedAt).toBe(500_000)
+    expect(snap.sessions[1].endedAt).toBe(700_000)
+    expect(snap.sessions[2].endedAt).toBeUndefined()
+    expect(snap.sessions[0].exitCode).toBeUndefined()
+    expect(snap.counts.notRunning).toBe(3)
+    expect(snap.counts.open).toBe(0)
+  })
+
+  it('an agent that exits during the run becomes finished since its endedAt, with the exit code', async () => {
+    manager.agents = [makeAgent()]
+    manager.activity.set('a1', { lastOutputAt: clock, lastExitCode: null })
+    await tracker.refresh()
+    clock += 60_000
+    const endedAt = clock - 5_000
+    manager.agents = [makeAgent({ status: 'idle', pid: null, endedAt: new Date(endedAt).toISOString() })]
+    manager.activity.set('a1', { lastOutputAt: clock - 5_000, lastExitCode: 2 })
+    const snap = await tracker.refresh()
+    expect(snap.sessions[0]).toMatchObject({ status: 'finished', statusSince: endedAt, endedAt, exitCode: 2 })
+    clock += 30_000
+    expect((await tracker.refresh()).sessions[0].statusSince).toBe(endedAt)
+  })
+
+  it('never puts statusSince in the future', async () => {
+    manager.agents = [makeAgent({ status: 'idle', pid: null, endedAt: new Date(clock + 10_000).toISOString() })]
+    const snap = await tracker.refresh()
+    expect(snap.sessions[0].statusSince).toBe(clock)
   })
 
   it('emits only on meaningful changes', async () => {

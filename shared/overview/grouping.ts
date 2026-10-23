@@ -8,7 +8,7 @@ export interface SessionGroup {
 
 export const NO_REPOSITORY = 'No repository'
 
-/** Order within the list: Working, Idle, Idle (stale), Failed, Finished, Starting. */
+/** Order within the list: Working, Idle, Idle (stale), Failed, Finished, Not running, Starting. */
 function rank(s: OverviewSession): number {
   switch (s.status) {
     case 'needs-you':
@@ -21,8 +21,10 @@ function rank(s: OverviewSession): number {
       return 4
     case 'finished':
       return 5
-    default:
+    case 'not-running':
       return 6
+    default:
+      return 7
   }
 }
 
@@ -44,7 +46,8 @@ export function groupByStatus(sessions: readonly OverviewSession[]): SessionGrou
     { key: 'working', label: 'Working', ranks: [1] },
     { key: 'idle', label: 'Idle', ranks: [2, 3] },
     { key: 'ended', label: 'Finished / Failed', ranks: [4, 5] },
-    { key: 'starting', label: 'Starting', ranks: [6] }
+    { key: 'not-running', label: 'Not running', ranks: [6] },
+    { key: 'starting', label: 'Starting', ranks: [7] }
   ]
   return defs
     .map((d) => ({ key: d.key, label: d.label, sessions: sorted.filter((s) => d.ranks.includes(rank(s))) }))

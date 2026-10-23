@@ -9,7 +9,7 @@ import type {
   OverviewStatus
 } from '@shared/overview/types'
 import { diffSnapshots, pointFromSessions, resumedEvent } from '@shared/overview/diff'
-import { computeCounts, deriveStatus, isStale, quietForMs } from '@shared/overview/status'
+import { computeCounts, deriveStatus, isEnded, isStale, quietForMs } from '@shared/overview/status'
 import { matchRegistryEntries, type RegistryEntry } from './claudeRegistry'
 import type { HistoryStore } from './HistoryStore'
 import type { WaitingTextReader } from './waitingText'
@@ -63,6 +63,8 @@ function sessionKey(s: OverviewSession): string {
     s.commit ?? null,
     s.status,
     s.statusSince,
+    s.endedAt ?? null,
+    s.exitCode ?? null,
     s.waitingReason ?? null,
     s.waitingText ?? null,
     s.stale,
@@ -243,7 +245,16 @@ export class OverviewTracker extends EventEmitter {
       const activity = this.agentManager.getActivity(agent.id) ?? NO_ACTIVITY
       const derived = deriveStatus(agent, activity, matches.get(agent.id) ?? null, now)
       const previous = this.tracked.get(agent.id)
-      const since = previous && previous.status === derived.status ? previous.since : now
+      const ended = isEnded(derived.status)
+      let endedAt: number | undefined
+      if (ended) {
+        const fromEnd = agent.endedAt ? Date.parse(agent.endedAt) : NaN
+        const fromActivity = Date.parse(agent.lastActivityAt)
+        endedAt = Number.isFinite(fromEnd) ? fromEnd : Number.isFinite(fromActivity) ? fromActivity : undefined
+      }
+      let since = now
+      if (previous && previous.status === derived.status) since = previous.since
+      else if (endedAt !== undefined) since = Math.min(endedAt, now)
       this.tracked.set(agent.id, { status: derived.status, since })
       const started = agent.startedAt ? Date.parse(agent.startedAt) : NaN
       const match = matches.get(agent.id)
@@ -278,6 +289,8 @@ export class OverviewTracker extends EventEmitter {
         ...(git?.commit ? { commit: git.commit } : {}),
         status: derived.status,
         statusSince: since,
+        ...(endedAt !== undefined ? { endedAt } : {}),
+        ...(activity.lastExitCode !== null ? { exitCode: activity.lastExitCode } : {}),
         waitingReason: derived.waitingReason,
         quietForMs: quietForMs(derived.status, activity.lastOutputAt, now),
         stale: isStale(derived.status, since, now),

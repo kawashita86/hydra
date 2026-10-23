@@ -8,7 +8,8 @@ export const STATUS_LABEL: Record<OverviewStatus, string> = {
   idle: 'Idle',
   starting: 'Starting',
   finished: 'Finished',
-  failed: 'Failed'
+  failed: 'Failed',
+  'not-running': 'Not running'
 }
 
 export function statusLabel(session: OverviewSession): string {
