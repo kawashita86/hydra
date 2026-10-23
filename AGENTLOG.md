@@ -654,3 +654,15 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 - The daemon has no `app.getVersion()` and `npm_package_version` is unset when packaged; `electron.vite.config.ts` injects `__APP_VERSION__` (typed in `electron/globals.d.ts`) for the User-Agent.
 - Events from the Overview tracker carry no provider; look it up in `peekSnapshot().sessions` by `agentId` (done in `daemon/index.ts` for working -> idle).
 - "Indexing" is shown only for the first full index (`lastScanAt === null`); showing it for every 60 s incremental scan would flicker the chip.
+
+### Running `npm run dev` next to an installed Hydra
+
+**Context**: Dev uses the same `userData` (`~/.config/hydra`) as the installed app, so it connects to the installed (older) daemon through its lock file and new daemon routes answer 404.
+
+**Do**: Run dev isolated with a short config dir and no sandbox: `XDG_CONFIG_HOME=/tmp/hx npx electron-vite dev --noSandbox --remoteDebuggingPort 9333`. Keep the path short: the daemon socket lives in it and Unix socket paths are limited to ~108 bytes (a longer path silently fails to bind). Screenshots via CDP `Page.captureScreenshot` on port 9333. Stop the dev daemon afterwards with the pid in `<XDG_CONFIG_HOME>/hydra/daemon.lock`.
+
+### Header right side has no spare width
+
+**Context**: The header's left and right halves are `flex: 1` around a fixed center switcher; at ~1200 px the right half holds about 455 px. Anything added there (the usage chip) pushes buttons under the switcher.
+
+**Do**: Measure the header at 1200 px after adding a header control; give it a compact form under a media query (the usage chip hides its bars below 1400 px).

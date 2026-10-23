@@ -35,6 +35,7 @@ import {
 } from '@shared/keybindings'
 import { SIDEBAR_SEARCH_FOCUS_EVENT } from './components/Sidebar/SearchBar'
 import { useOverviewSnapshot, needsYouCount } from './hooks/useOverview'
+import { useUsageState } from './hooks/useUsage'
 import { useNeedsYouTitle } from './hooks/useNeedsYouTitle'
 import { OverviewView } from './components/Overview/OverviewView'
 import { ShortcutsOverlay } from './components/Shortcuts/ShortcutsOverlay'
@@ -117,6 +118,8 @@ export default function App() {
   // One snapshot subscription for the tab badge, the window title and the Overview view (its 1 s tick stays inside the view).
   const overview = useOverviewSnapshot()
   const needsYou = needsYouCount(overview.snapshot)
+  // One usage subscription for the header chip (and the Overview card); the popover reads it from here.
+  const usage = useUsageState()
   useNeedsYouTitle(needsYou)
   const {
     agents,
@@ -709,6 +712,7 @@ export default function App() {
         onOpenHeadless={() => setShowHeadless(true)}
         onOpenRemote={() => setShowRemoteControl(true)}
         remoteActive={remoteControl.state.enabled}
+        usage={usage}
         onOpenUsage={() => setShowUsageDashboard(true)}
         onOpenUpdates={() => setShowUpdatePanel(true)}
         showUpdateAction={updateState.supported}

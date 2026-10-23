@@ -1,6 +1,8 @@
 import { ViewSwitcher } from './ViewSwitcher'
 import { OpenInButton } from './OpenInButton'
 import { Tooltip } from '../Tooltip'
+import { UsageMenu } from '../Usage/UsageMenu'
+import type { UsageState } from '@shared/usage/types'
 import type { ViewMode, EditorId } from '@shared/types'
 import styles from './Header.module.css'
 
@@ -15,6 +17,7 @@ interface HeaderProps {
   onOpenHeadless: () => void
   onOpenRemote: () => void
   remoteActive: boolean
+  usage: UsageState | null
   onOpenUsage: () => void
   onOpenUpdates: () => void
   showUpdateAction: boolean
@@ -37,6 +40,7 @@ export function Header({
   onOpenHeadless: _onOpenHeadless,
   onOpenRemote,
   remoteActive,
+  usage,
   onOpenUsage,
   onOpenUpdates,
   showUpdateAction,
@@ -98,11 +102,7 @@ export function Header({
             Remote
           </button>
         </Tooltip>
-        <Tooltip content="Usage Dashboard">
-          <button className={styles.usageBtn} onClick={onOpenUsage}>
-            Usage
-          </button>
-        </Tooltip>
+        <UsageMenu state={usage} onOpenReport={onOpenUsage} />
         <Tooltip content="Settings">
           <button className={styles.settingsBtn} onClick={onOpenSettings}>
             <SettingsIcon />
