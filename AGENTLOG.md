@@ -667,3 +667,22 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 **Context**: The header's left and right halves are `flex: 1` around a fixed center switcher; at ~1200 px the right half holds about 455 px. Anything added there (the usage chip) pushes buttons under the switcher.
 
 **Do**: Measure the header at 1200 px after adding a header control; give it a compact form under a media query (the usage chip hides its bars below 1400 px).
+
+### Claude plan limits: read-only OAuth, never refresh
+
+**Context**: `electron/usage/ClaudeLimitsClient.ts` reads each profile's token (`<configDir>/.credentials.json`, macOS Keychain `Claude Code-credentials[-<sha256(configDir)[:8]>]`) and calls the undocumented `GET https://api.anthropic.com/api/oauth/usage` (`anthropic-beta: oauth-2025-04-20`).
+
+**Gotchas**:
+- Never call the OAuth refresh endpoint: refreshing rotates the refresh token and can sign Claude Code out. An expired or rejected token shows "Sign-in expired"; Claude Code refreshes it next time it runs in that profile. A token that got 401/403 is not sent again until its hash changes.
+- The token stays inside the client: never in state, errors, logs, IPC, WS or the cache. Tests assert it is absent from every returned object.
+- The body has two shapes: `limits[]` (`kind` session/weekly_all/…, `percent` integer 0–100 — `1` means 1 %, not 100 %) and legacy `five_hour`/`seven_day` (`utilization`). Prefer `limits[]`.
+- The non-default-profile Keychain service name follows Claude Code's scheme but was not verified on a Mac (Tokdash only reads the default profile).
+
+### Usage scanner: transcripts outlive their files
+
+**Context**: `electron/usage/UsageStore.ts` reads Claude transcripts (all profiles, including `<session>/subagents/*.jsonl`) and Codex rollouts incrementally by byte offset.
+
+**Gotchas**:
+- Claude Code deletes transcripts after ~30 days: a deleted file keeps its contributions; only a shrunk/replaced file is subtracted and re-read.
+- One API response is written as several lines with the same usage, and forked/resumed sessions copy lines into new files: dedupe by `message.id:requestId` (Claude) and session id + usage signature (Codex). Never add `thinking_tokens` to `output_tokens` (already included).
+- Bump `PRICING_VERSION` (`shared/usage/pricing.ts`) when prices change: costs are stored per bucket, and the version mismatch triggers a full rescan.

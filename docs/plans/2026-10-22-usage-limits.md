@@ -1,6 +1,6 @@
 # Usage & limits — implementation plan
 
-> Status: **APPROVED 2026-10-23** (mockups A and B approved), in progress · Branch: `feat/usage-limits`
+> Status: **DONE 2026-10-23** (mockups A and B approved, all steps merged into the feature branch) · Branch: `feat/usage-limits`
 > Workflow: each step is implemented by a Sonnet 5.5 subagent, then reviewed and committed.
 > Reference project: [JingbiaoMei/Tokdash](https://github.com/JingbiaoMei/Tokdash) (MIT), its **native menu-bar companion** (`companion/`), not its web dashboard.
 > Mockups: https://claude.ai/artifact/D49EVhNH8L73NFm8PxgmPV (A: header chip + popover, B: Overview card, C: states)
@@ -20,7 +20,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 8 — Overview "Usage & limits" card (mockup B)
 - [x] Step 9 — Low-limit alerts (opt-in) and Settings › Usage
 - [x] Step 10 — Move the old Usage dashboard onto the new data, retire ccusage (optional)
-- [ ] Step 11 — Polish: states, docs, AGENTLOG
+- [x] Step 11 — Polish: states, docs, AGENTLOG
 
 ---
 
