@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { isEnded } from '@shared/overview/status'
 import type { AgentDetails, OverviewSession } from '@shared/overview/types'
-import { formatClock, formatCount, formatDuration } from './format'
+import { formatAgo, formatClock, formatCount, formatDuration } from './format'
 import { reasonLabel } from './NeedsYouPanel'
 import { agentLabel, branchOf, dotKey, quietText, repoOf, statusLabel } from './sessionFacts'
 import styles from './SessionDetails.module.css'
@@ -169,9 +169,23 @@ export function SessionDetails({
               {statusLabel(shown)}
             </span>
             <span className={styles.sub}>
-              since {formatClock(shown.statusSince, now)} ({formatDuration(now - shown.statusSince)})
+              {isEnded(shown.status) ? (
+                <>
+                  {shown.status === 'not-running' ? 'Last active' : 'Ended at'}{' '}
+                  {formatClock(shown.endedAt ?? shown.statusSince, now)} (
+                  {formatAgo(shown.endedAt ?? shown.statusSince, now)})
+                </>
+              ) : (
+                <>
+                  since {formatClock(shown.statusSince, now)} ({formatDuration(now - shown.statusSince)})
+                </>
+              )}
             </span>
           </Fact>
+
+          {shown.exitCode !== undefined && (shown.status === 'failed' || shown.status === 'finished') && (
+            <Fact label="Exit code">{shown.exitCode}</Fact>
+          )}
 
           {shown.status === 'needs-you' && (
             <Fact label="Waiting">

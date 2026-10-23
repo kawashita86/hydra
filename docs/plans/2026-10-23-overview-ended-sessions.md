@@ -1,6 +1,6 @@
 # Overview: correct times for ended sessions, "Not running" group
 
-> Status: **PLANNED 2026-10-23** · Branch: `fix/overview-ended-sessions`
+> Status: **DONE 2026-10-23** · Branch: `fix/overview-ended-sessions`
 > Workflow: each step is implemented by a Sonnet 5.5 subagent, then reviewed and committed.
 
 ## Progress
@@ -10,8 +10,8 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 1 — `endedAt` on agents, persisted
 - [x] Step 2 — New `not-running` status, tracker with real `statusSince`, counts, history
 - [x] Step 3 — Grouping: "Not running" group, ended newest first, cap + "Show more"
-- [ ] Step 4 — UI: "ended 3h ago" / "last active 2d ago", exit code, counts row, details drawer
-- [ ] Step 5 — Polish: AGENTLOG, manual check with `npm run dev`
+- [x] Step 4 — UI: "ended 3h ago" / "last active 2d ago", exit code, counts row, details drawer
+- [x] Step 5 — Polish: AGENTLOG, manual check with `npm run dev`
 
 ---
 

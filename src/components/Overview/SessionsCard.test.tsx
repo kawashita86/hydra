@@ -127,6 +127,16 @@ describe('SessionsCard', () => {
     expect(within(ended).queryByText('agent-b')).toBeNull()
   })
 
+  it('shows when ended rows ended instead of a running timer, and the exit code', () => {
+    renderCard([
+      s('a', 'failed', { endedAt: NOW - 3 * 3_600_000, statusSince: NOW - 3 * 3_600_000, exitCode: 1 }),
+      s('b', 'not-running', { endedAt: NOW - 20 * 60_000, statusSince: NOW - 20 * 60_000 })
+    ])
+    expect(screen.getByText('ended 3h ago')).toBeTruthy()
+    expect(screen.getByText('exit 1')).toBeTruthy()
+    expect(screen.getByText('last active 20m ago')).toBeTruthy()
+  })
+
   it('opens details on a row click but not when Jump is clicked', () => {
     const onOpen = vi.fn()
     const onJump = vi.fn()

@@ -101,6 +101,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.endedAgo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .quiet {
   font-size: var(--font-size-xs);
   color: var(--color-status-starting);

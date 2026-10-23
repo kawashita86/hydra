@@ -686,3 +686,12 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 - Claude Code deletes transcripts after ~30 days: a deleted file keeps its contributions; only a shrunk/replaced file is subtracted and re-read.
 - One API response is written as several lines with the same usage, and forked/resumed sessions copy lines into new files: dedupe by `message.id:requestId` (Claude) and session id + usage signature (Codex). Never add `thinking_tokens` to `output_tokens` (already included).
 - Bump `PRICING_VERSION` (`shared/usage/pricing.ts`) when prices change: costs are stored per bucket, and the version mismatch triggers a full rescan.
+
+### Overview: ended sessions need a real end time
+
+**Context**: `OverviewTracker` keeps each agent's `statusSince` in an in-memory map that is empty when the daemon starts.
+
+**Gotchas**:
+- Taking `since = now` on first sight made every ended agent show the time since Hydra opened. For ended statuses (`isEnded`), seed `since` from `AgentState.endedAt` (set on PTY exit / spawn failure, persisted, stamped at shutdown by `exportWorkspaceAgents({ endingNow: true })`), falling back to `lastActivityAt`.
+- The manager's `idle` means "no PTY", not "finished": restored and imported agents come back `idle`. They are `not-running` until a PTY exit is seen in this run (`AgentActivity.lastExitCode !== null`).
+- `not-running` is never written to the history files (`HistoryStore.diskStatuses`), and Timeline rows made only of it are hidden.
