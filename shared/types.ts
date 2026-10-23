@@ -331,8 +331,8 @@ export const IPC = {
   OBS_LOG_EVENT: 'obs:log-event',
   OBS_EXPORT_DIAGNOSTICS: 'obs:export-diagnostics',
 
-  // Usage dashboard (ccusage)
-  USAGE_DASHBOARD_GET: 'usage:dashboard-get',
+  // Usage & limits
+  USAGE_REPORT_GET: 'usage:report-get',
   USAGE_STATE_GET: 'usage:state-get',
   USAGE_SUMMARY_GET: 'usage:summary-get',
   USAGE_REFRESH: 'usage:refresh',
@@ -543,44 +543,6 @@ export interface HeadlessRunLogPayload {
   totalLines: number
   returnedLines: number
   truncated: boolean
-}
-
-// ── Usage dashboard (ccusage) ────────────────────────────────────────────────
-
-export interface CcusageModelBreakdown {
-  modelName: string
-  inputTokens: number
-  outputTokens: number
-  cacheCreationTokens: number
-  cacheReadTokens: number
-  cost: number
-}
-
-export interface CcusageDailyEntry {
-  date: string
-  inputTokens: number
-  outputTokens: number
-  cacheCreationTokens: number
-  cacheReadTokens: number
-  totalTokens: number
-  totalCost: number
-  modelsUsed: string[]
-  modelBreakdowns: CcusageModelBreakdown[]
-}
-
-export interface CcusageSnapshot {
-  available: boolean
-  provider: ProviderId
-  installHint?: string
-  generatedAt: string
-  daily: CcusageDailyEntry[]
-  /** project key → daily entries */
-  projects: Record<string, CcusageDailyEntry[]>
-}
-
-export interface CcusageOptions {
-  days?: number
-  provider?: ProviderId
 }
 
 // ── App updates ───────────────────────────────────────────────────────────────

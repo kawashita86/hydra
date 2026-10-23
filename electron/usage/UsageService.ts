@@ -1,9 +1,11 @@
 import { EventEmitter } from 'events'
 import type { CodexParsedLimits } from '@shared/usage/codexLine'
+import { buildUsageReport, type UsageReport, type UsageReportProvider } from '@shared/usage/report'
 import type {
   ClaudeProfileLimits,
   UsagePeriod,
   UsageScanProgress,
+  UsageBucket,
   UsageState,
   UsageSummary
 } from '@shared/usage/types'
@@ -13,6 +15,7 @@ export interface UsageStoreLike {
   load(): void
   scan(onProgress?: (p: UsageScanProgress) => void): Promise<boolean>
   summary(period: UsagePeriod, now: Date, opts?: { projectKey?: string }): UsageSummary
+  buckets(): UsageBucket[]
   codexLimits(): CodexParsedLimits | null
   status(): { indexing: boolean; progress: UsageScanProgress | null; lastScanAt: number | null }
   stop(): void
@@ -139,6 +142,10 @@ export class UsageService extends EventEmitter {
 
   summary(period: UsagePeriod, projectKey?: string): UsageSummary {
     return this.store.summary(period, new Date(), projectKey ? { projectKey } : undefined)
+  }
+
+  report(days: number, provider: UsageReportProvider): UsageReport {
+    return buildUsageReport(this.store.buckets(), { days, provider, now: new Date(this.now()) })
   }
 
   private isVisible(): boolean {

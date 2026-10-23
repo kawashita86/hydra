@@ -40,6 +40,7 @@ class FakeStore implements UsageStoreLike {
     return changed
   }
   summary = vi.fn(() => ({}) as never)
+  buckets = (): never[] => []
   codexLimits = (): null => null
   status() {
     return { indexing: this.indexing, progress: this.progress, lastScanAt: this.lastScanAt }

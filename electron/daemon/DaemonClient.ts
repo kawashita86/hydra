@@ -20,6 +20,7 @@ import type {
   SkillTogglePayload,
   FreeTerminalLayout
 } from '@shared/types'
+import type { UsageReport, UsageReportProvider } from '@shared/usage/report'
 import type { UsagePeriod, UsageState, UsageSummary } from '@shared/usage/types'
 import type { AgentDetails, HistoryResponse, OverviewSnapshot, WaitsResponse } from '@shared/overview/types'
 import type { DaemonHealthResponse, WsServerMessage } from './protocol'
@@ -192,6 +193,10 @@ export class DaemonClient extends EventEmitter {
   async getUsageSummary(period: UsagePeriod, projectKey?: string): Promise<UsageSummary> {
     const project = projectKey ? `&project=${encodeURIComponent(projectKey)}` : ''
     return this.httpRequest('GET', `/usage/summary?period=${period}${project}`)
+  }
+
+  async getUsageReport(days: number, provider: UsageReportProvider): Promise<UsageReport> {
+    return this.httpRequest('GET', `/usage/report?days=${days}&provider=${provider}`)
   }
 
   async refreshUsage(): Promise<UsageState> {

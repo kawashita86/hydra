@@ -4,6 +4,7 @@ import { unlinkSync, existsSync } from 'fs'
 import { homedir } from 'os'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
 import { AgentManager } from '../agents/AgentManager'
+import { buildUsageReport, REPORT_MAX_DAYS, REPORT_MIN_DAYS, type UsageReport, type UsageReportProvider } from '@shared/usage/report'
 import { summarize } from '@shared/usage/summary'
 import type { UsagePeriod, UsageState, UsageSummary } from '@shared/usage/types'
 import type { OverviewTracker } from '../overview/OverviewTracker'
@@ -35,6 +36,7 @@ import type {
 export interface UsageServiceLike {
   state(): UsageState
   summary(period: UsagePeriod, projectKey?: string): UsageSummary
+  report(days: number, provider: UsageReportProvider): UsageReport
   refresh(): Promise<UsageState>
   setVisible(): void
   on(event: 'changed', listener: (state: UsageState) => void): unknown
@@ -496,6 +498,22 @@ export class DaemonServer {
         }
         if (!this.usageService) return this.json(res, 200, emptyUsageSummary(period))
         return this.json(res, 200, this.usageService.summary(period, project))
+      }
+
+      if (method === 'GET' && path === '/usage/report') {
+        const daysParam = url.searchParams.get('days')
+        const days = daysParam === null ? 30 : Number(daysParam)
+        if (!Number.isInteger(days) || days < REPORT_MIN_DAYS || days > REPORT_MAX_DAYS) {
+          return this.json(res, 400, { error: `days must be an integer from ${REPORT_MIN_DAYS} to ${REPORT_MAX_DAYS}` })
+        }
+        const provider = url.searchParams.get('provider') ?? 'all'
+        if (provider !== 'claude' && provider !== 'codex' && provider !== 'all') {
+          return this.json(res, 400, { error: 'provider must be claude, codex or all' })
+        }
+        if (!this.usageService) {
+          return this.json(res, 200, buildUsageReport([], { days, provider, now: new Date() }))
+        }
+        return this.json(res, 200, this.usageService.report(days, provider))
       }
 
       if (method === 'POST' && path === '/usage/refresh') {

@@ -456,3 +456,8 @@
   width: auto;
   max-width: 50%;
 }
+
+.numberInput:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

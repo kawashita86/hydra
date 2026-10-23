@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/types'
 import type { KeybindingRule } from '@shared/keybindings'
+import type { UsageReport, UsageReportProvider } from '@shared/usage/report'
 import type { UsagePeriod, UsageState, UsageSummary } from '@shared/usage/types'
 import type { AgentDetails, HistoryResponse, OverviewEvent, OverviewSnapshot, WaitsResponse } from '@shared/overview/types'
 import type {
@@ -25,8 +26,6 @@ import type {
   ExportDiagnosticsResult,
   McpServerStatus,
   HydraNotification,
-  CcusageOptions,
-  CcusageSnapshot,
   AppUpdateState,
   FsDirEntry,
   FsReadFileResult,
@@ -131,6 +130,9 @@ const hydraApi = {
 
   getUsageSummary: (period: UsagePeriod, projectKey?: string): Promise<UsageSummary> =>
     ipcRenderer.invoke(IPC.USAGE_SUMMARY_GET, period, projectKey),
+
+  getUsageReport: (days: number, provider: UsageReportProvider): Promise<UsageReport> =>
+    ipcRenderer.invoke(IPC.USAGE_REPORT_GET, days, provider),
 
   refreshUsage: (): Promise<UsageState> => ipcRenderer.invoke(IPC.USAGE_REFRESH),
 
@@ -239,10 +241,6 @@ const hydraApi = {
     ipcRenderer.send(IPC.OBS_LOG_EVENT, payload),
   exportDiagnostics: (): Promise<ExportDiagnosticsResult> =>
     ipcRenderer.invoke(IPC.OBS_EXPORT_DIAGNOSTICS),
-
-  // Usage dashboard (ccusage)
-  getUsageDashboard: (options?: CcusageOptions): Promise<CcusageSnapshot> =>
-    ipcRenderer.invoke(IPC.USAGE_DASHBOARD_GET, options),
 
   // App updates
   getUpdateState: (): Promise<AppUpdateState> =>
