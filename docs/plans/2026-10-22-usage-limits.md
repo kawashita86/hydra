@@ -13,7 +13,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 1 — Usage model (pure, shared)
 - [x] Step 2 — Claude transcript scanner
 - [x] Step 3 — Codex rollout scanner (tokens + passive limits)
-- [ ] Step 4 — `UsageStore`: hourly buckets, file-offset cache, persisted
+- [x] Step 4 — `UsageStore`: hourly buckets, file-offset cache, persisted
 - [ ] Step 5 — Claude plan limits (OAuth usage endpoint, per profile)
 - [ ] Step 6 — `UsageService` in the daemon, REST + WS, IPC to the renderer
 - [ ] Step 7 — Header chip + popover (mockup A)
@@ -150,7 +150,7 @@ Each step ends green on `npm run typecheck && npm test` and is one or a few Conv
 - `GET /api/oauth/usage` → 200. Body has both shapes: `limits[]` = `{kind: 'session' | 'weekly_all' | …, group, percent (integer 0-100), severity: 'normal' | …, resets_at (ISO), scope: null | {model: {display_name}}, is_active}` **and** legacy `five_hour` / `seven_day` / `seven_day_opus` / `seven_day_sonnet` = `{utilization (0-100), resets_at}` or `null`, plus `extra_usage`, `spend` and many `null` code-named keys. Prefer `limits[]`, fall back to the legacy keys. Saved redacted as `shared/usage/fixtures/claude-oauth-usage.json`.
 - `.credentials.json` → `claudeAiOauth.{accessToken, refreshToken, expiresAt (ms), refreshTokenExpiresAt, scopes, subscriptionType ('pro' | 'max' | …), rateLimitTier}`. The access token lives ~8 h.
 - Transcript `assistant` lines: `message.{id, model, usage}`, top-level `requestId`, `timestamp`, `cwd`, `sessionId`, `isSidechain`. `usage` = `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, plus `cache_creation.{ephemeral_5m_input_tokens, ephemeral_1h_input_tokens}` (1 h cache writes cost 2× input, 5 m cost 1.25×) and `output_tokens_details.thinking_tokens` (already inside `output_tokens`).
-- Subagent transcripts live at `<profile>/projects/<folder>/<sessionId>/subagents/agent-*.jsonl` — the scanner must recurse. This machine: 129 files, 387 MB.
+- Subagent transcripts live at `<profile>/projects/<folder>/<sessionId>/subagents/agent-*.jsonl` — the scanner must recurse. This machine: 3 profiles (`~/.claude`, `~/.claude-alternative`, `~/.claude-work`), 672 files; `~/.claude` alone 134 files, 387 MB. First full scan 2.7 s, incremental rescan < 50 ms, cache 2.9 MB.
 - Codex is not installed here; Codex fixtures follow Tokdash's test shapes (`tests/test_quota_codex.py`, `tests/test_codex_compaction_billing.py`): `event_msg` / `payload.type: 'token_count'`, `payload.info.{last_token_usage, total_token_usage}` = `{input_tokens (includes cached), cached_input_tokens, output_tokens, reasoning_output_tokens, total_tokens}`, `payload.rate_limits.{plan_type, primary, secondary}` = `{used_percent, window_minutes (300 / 10080), resets_at (ISO or epoch s)}` (older logs put `rate_limits` under `info`). Model from `turn_context.payload.model`. Files under `$CODEX_HOME/sessions/**` **and** `$CODEX_HOME/archived_sessions/`. Resumed threads replay earlier events with new timestamps: dedupe by session id + the `(total, last)` usage signature.
 
 ### Step 1 — Usage model (pure, shared)
