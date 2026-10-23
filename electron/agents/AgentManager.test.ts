@@ -312,6 +312,116 @@ describe('AgentManager', () => {
     expect(manager.getActivity(created.id)).toEqual({ lastOutputAt: 0, lastExitCode: null })
   })
 
+  it('stamps endedAt on exit and clears it when a new PTY spawns', async () => {
+    vi.setSystemTime(new Date('2026-03-01T10:00:00.000Z'))
+    const manager = new AgentManager()
+    const created = await manager.create({ ...basePayload, name: 'ended-check' })
+    expect(manager.get(created.id)?.endedAt).toBeNull()
+
+    vi.setSystemTime(new Date('2026-03-01T11:00:00.000Z'))
+    createdPtys[0].emitExit({ exitCode: 0 })
+    expect(manager.get(created.id)?.endedAt).toBe('2026-03-01T11:00:00.000Z')
+
+    manager.restart(created.id)
+    expect(manager.get(created.id)?.endedAt).toBeNull()
+  })
+
+  it('stamps endedAt when the PTY fails to spawn', async () => {
+    vi.setSystemTime(new Date('2026-03-01T10:00:00.000Z'))
+    const manager = new AgentManager()
+    spawnMock.mockImplementation(() => {
+      throw new Error('boom')
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const created = await manager.create({ ...basePayload, name: 'spawn-fail' })
+
+    expect(created.status).toBe('errored')
+    expect(manager.get(created.id)?.endedAt).toBe('2026-03-01T10:00:00.000Z')
+  })
+
+  it('restores endedAt from the workspace and exports it again', () => {
+    const manager = new AgentManager()
+    manager.hydrateWorkspaceAgents([
+      {
+        id: 'a1',
+        name: 'Persisted',
+        projectDir: '/tmp/project',
+        model: 'sonnet',
+        yolo: false,
+        sessionId: 'sess-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        endedAt: '2026-01-02T00:00:00.000Z'
+      },
+      {
+        id: 'a2',
+        name: 'Legacy',
+        projectDir: '/tmp/project',
+        model: 'sonnet',
+        yolo: false,
+        sessionId: 'sess-2',
+        createdAt: '2026-01-01T00:00:00.000Z'
+      }
+    ])
+
+    const byName = new Map(manager.list().map((agent) => [agent.name, agent]))
+    expect(byName.get('Persisted')?.endedAt).toBe('2026-01-02T00:00:00.000Z')
+    expect(byName.get('Legacy')?.endedAt).toBeNull()
+
+    const exported = manager.exportWorkspaceAgents()
+    expect(exported.find((agent) => agent.name === 'Persisted')?.endedAt).toBe('2026-01-02T00:00:00.000Z')
+    expect(exported.find((agent) => agent.name === 'Legacy')?.endedAt).toBeNull()
+  })
+
+  it('exportWorkspaceAgents({ endingNow }) stamps running agents only', async () => {
+    const manager = new AgentManager()
+    manager.hydrateWorkspaceAgents([
+      {
+        id: 'stopped',
+        name: 'Stopped',
+        projectDir: '/tmp/project',
+        model: 'sonnet',
+        yolo: false,
+        sessionId: 'sess-stopped',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        endedAt: '2026-01-02T00:00:00.000Z'
+      }
+    ])
+    const running = await manager.create({ ...basePayload, name: 'Running' })
+
+    vi.setSystemTime(new Date('2026-03-01T12:00:00.000Z'))
+    const plain = manager.exportWorkspaceAgents()
+    expect(plain.find((agent) => agent.id === running.id)?.endedAt).toBeNull()
+
+    const exported = manager.exportWorkspaceAgents({ endingNow: true })
+    expect(exported.find((agent) => agent.id === running.id)?.endedAt).toBe('2026-03-01T12:00:00.000Z')
+    expect(exported.find((agent) => agent.name === 'Stopped')?.endedAt).toBe('2026-01-02T00:00:00.000Z')
+  })
+
+  it('uses the transcript modifiedAt for lastActivityAt and endedAt of imported sessions', () => {
+    const manager = new AgentManager()
+    manager.importSessions(
+      [
+        {
+          sessionId: 'session-modified',
+          projectPath: '/tmp/imported',
+          firstPrompt: 'Hello',
+          messageCount: 2,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          modifiedAt: '2026-01-03T00:00:00.000Z',
+          gitBranch: 'main',
+          isSidechain: false,
+          sourcePath: '/tmp/imported/session-modified.jsonl'
+        }
+      ],
+      'sonnet'
+    )
+
+    const imported = manager.list()[0]
+    expect(imported.createdAt).toBe('2026-01-01T00:00:00.000Z')
+    expect(imported.lastActivityAt).toBe('2026-01-03T00:00:00.000Z')
+    expect(imported.endedAt).toBe('2026-01-03T00:00:00.000Z')
+  })
+
   it('enforces hard cap for concurrently active agents', async () => {
     const manager = new AgentManager()
 
