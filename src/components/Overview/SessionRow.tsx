@@ -1,5 +1,6 @@
 import type { OverviewSession } from '@shared/overview/types'
-import { formatClock, formatDuration } from './format'
+import { isEnded } from '@shared/overview/status'
+import { formatAgo, formatClock, formatDuration } from './format'
 import { agentLabel, branchOf, dotKey, folderOf, quietText, statusLabel } from './sessionFacts'
 import styles from './Sessions.module.css'
 
@@ -35,12 +36,23 @@ export function Where({ session, hideFolder }: { session: OverviewSession; hideF
 
 export function StatusFact({ session, now }: { session: OverviewSession; now: number }) {
   const quiet = quietText(session, now)
+  const ended = isEnded(session.status)
+  const endedAt = session.endedAt ?? session.statusSince
   return (
     <span className={styles.statusCell}>
       <span className={styles.statusLine}>
         <span className={`${styles.dot} ${styles[dotKey(session)]}`} aria-hidden="true" />
         <span className={styles.statusText}>{statusLabel(session)}</span>
-        <span className={styles.duration}>{formatDuration(now - session.statusSince, { compact: true })}</span>
+        {session.status === 'failed' && session.exitCode !== undefined && (
+          <span className={styles.duration}>exit {session.exitCode}</span>
+        )}
+        {ended ? (
+          <span className={`${styles.duration} ${styles.endedAgo}`} title={formatClock(endedAt, now)}>
+            {session.status === 'not-running' ? 'last active' : 'ended'} {formatAgo(endedAt, now)}
+          </span>
+        ) : (
+          <span className={styles.duration}>{formatDuration(now - session.statusSince, { compact: true })}</span>
+        )}
       </span>
       {quiet && (
         <span

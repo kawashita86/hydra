@@ -125,7 +125,7 @@ describe('TimelineCard', () => {
 })
 
 const counts: OverviewCounts = {
-  working: 1, idle: 1, stale: 0, needsYou: 0, open: 2, finished: 0, failed: 0, total: 2,
+  working: 1, idle: 1, stale: 0, needsYou: 0, open: 2, finished: 0, failed: 0, notRunning: 0, total: 2,
   longestWorkingMs: null, longestIdleMs: null
 }
 

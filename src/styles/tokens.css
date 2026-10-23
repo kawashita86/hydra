@@ -102,6 +102,7 @@
   --color-status-error: #E53935;
   --color-status-starting: #FF9800;
   --color-status-finished: #4A86D9;
+  --color-status-not-running: #B8B2AB;
 
   --color-yolo: #E53935;
   --color-yolo-bg: rgba(229, 57, 53, 0.08);
@@ -156,6 +157,7 @@
   --color-status-error: #EF5350;
   --color-status-starting: #FFA726;
   --color-status-finished: #64A6F0;
+  --color-status-not-running: #6B6660;
 
   --color-yolo: #FF5252;
   --color-yolo-bg: rgba(255, 82, 82, 0.1);
@@ -210,6 +212,7 @@
   --color-status-error: #FF6B6B;
   --color-status-starting: #FFD166;
   --color-status-finished: #79B8FF;
+  --color-status-not-running: #5C5852;
 
   --color-yolo: #FFFFFF;
   --color-yolo-bg: rgba(255, 255, 255, 0.08);

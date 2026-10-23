@@ -13,6 +13,7 @@ export interface PersistedWorkspaceAgent {
   sessionId: string | null
   createdAt: string
   lastActivityAt?: string
+  endedAt?: string | null
   workMode?: WorkMode
   worktreePath?: string | null
   worktreeBranch?: string | null

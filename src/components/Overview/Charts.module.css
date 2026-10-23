@@ -91,6 +91,7 @@
 .s_idle { fill: var(--color-status-idle); background: var(--color-status-idle); }
 .s_starting { fill: var(--color-status-starting); background: var(--color-status-starting); opacity: 0.55; }
 .s_finished { fill: var(--color-status-finished); background: var(--color-status-finished); }
+.s_not_running { fill: var(--color-status-not-running); background: var(--color-status-not-running); }
 .s_failed { fill: var(--color-status-error); background: var(--color-status-error); }
 
 .barNeeds { fill: var(--color-status-starting); }

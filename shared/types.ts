@@ -28,6 +28,8 @@ export interface AgentState extends AgentConfig {
   pid: number | null
   restartCount: number
   startedAt: string | null
+  /** When the agent's process last ended; `null` when unknown or running. */
+  endedAt: string | null
   lastActivityAt: string
 }
 

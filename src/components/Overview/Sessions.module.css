@@ -45,6 +45,7 @@
 .dot_stale { background: transparent; box-shadow: inset 0 0 0 2px var(--color-status-idle); }
 .dot_starting { background: transparent; box-shadow: inset 0 0 0 2px var(--color-status-starting); }
 .dot_finished { background: var(--color-status-finished); }
+.dot_not_running { background: var(--color-status-not-running); }
 .dot_failed { background: var(--color-status-error); }
 
 .mono {
@@ -100,6 +101,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.endedAgo {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .quiet {
   font-size: var(--font-size-xs);
   color: var(--color-status-starting);
@@ -121,6 +128,21 @@
 }
 
 .selected {
+  background: var(--color-accent-subtle);
+}
+
+/* "Show N more" / "Show less" under a capped group. */
+.showMore {
+  align-self: flex-start;
+  padding: 2px var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: transparent;
+  border-radius: var(--radius-md);
+}
+
+.showMore:hover {
+  color: var(--color-text-secondary);
   background: var(--color-accent-subtle);
 }
 

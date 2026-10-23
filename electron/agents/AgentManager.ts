@@ -220,6 +220,7 @@ export class AgentManager extends EventEmitter {
       pid: null,
       restartCount: 0,
       startedAt: null,
+      endedAt: null,
       lastActivityAt: now,
       workMode,
       worktreePath,
@@ -281,7 +282,8 @@ export class AgentManager extends EventEmitter {
         pid: null,
         restartCount: 0,
         startedAt: null,
-        lastActivityAt: session.createdAt || new Date().toISOString(),
+        endedAt: session.modifiedAt || session.createdAt || null,
+        lastActivityAt: session.modifiedAt || session.createdAt || new Date().toISOString(),
         workMode: 'local',
         worktreePath: null,
         worktreeBranch: null
@@ -337,6 +339,7 @@ export class AgentManager extends EventEmitter {
         pid: null,
         restartCount: 0,
         startedAt: null,
+        endedAt: persisted.endedAt ?? null,
         lastActivityAt: persisted.lastActivityAt || persisted.createdAt || new Date().toISOString(),
         workMode: persisted.workMode ?? 'local',
         worktreePath: persisted.worktreePath ?? null,
@@ -366,7 +369,12 @@ export class AgentManager extends EventEmitter {
     return restored
   }
 
-  exportWorkspaceAgents(): PersistedWorkspaceAgent[] {
+  /** `endingNow` stamps still-running agents as ended now (daemon shutdown, before their PTYs are killed). */
+  exportWorkspaceAgents({ endingNow = false }: { endingNow?: boolean } = {}): PersistedWorkspaceAgent[] {
+    if (endingNow) {
+      const now = new Date().toISOString()
+      for (const managed of this.agents.values()) if (managed.pty) managed.state.endedAt = now
+    }
     return Array.from(this.agents.values())
       .filter((managed) => managed.source === 'hydra')
       .map((managed) => ({
@@ -380,6 +388,7 @@ export class AgentManager extends EventEmitter {
         sessionId: managed.state.sessionId,
         createdAt: managed.state.createdAt,
         lastActivityAt: managed.state.lastActivityAt,
+        endedAt: managed.state.endedAt,
         workMode: managed.state.workMode,
         worktreePath: managed.state.worktreePath,
         worktreeBranch: managed.state.worktreeBranch
@@ -484,6 +493,7 @@ export class AgentManager extends EventEmitter {
       // Fall back to spawning through cmd.exe which handles .cmd natively.
       if (process.platform !== 'win32') {
         console.error(`[spawn] agent=${managed.state.id} failed:`, directErr)
+        managed.state.endedAt = new Date().toISOString()
         this.updateStatus(managed.state.id, 'errored')
         return 'errored'
       }
@@ -493,6 +503,7 @@ export class AgentManager extends EventEmitter {
         console.log(`[spawn] agent=${managed.state.id} cmd.exe fallback succeeded (pid=${pty.pid})`)
       } catch (fallbackErr) {
         console.error(`[spawn] agent=${managed.state.id} cmd.exe fallback also failed:`, fallbackErr)
+        managed.state.endedAt = new Date().toISOString()
         this.updateStatus(managed.state.id, 'errored')
         return 'errored'
       }
@@ -503,6 +514,7 @@ export class AgentManager extends EventEmitter {
       managed.stopRequested = false
       managed.state.pid = pty.pid
       managed.state.startedAt = new Date().toISOString()
+      managed.state.endedAt = null
       this.updateStatus(managed.state.id, 'running')
       this.startSessionDiscovery(managed)
 
@@ -541,6 +553,7 @@ export class AgentManager extends EventEmitter {
         }
         managed.pty = null
         managed.state.pid = null
+        managed.state.endedAt = new Date().toISOString()
         managed.lastExitCode = exitCode
         this.stopSessionDiscovery(managed)
         this.probeSessionIdFromCatalog(managed, { forceRefresh: true })
@@ -575,6 +588,7 @@ export class AgentManager extends EventEmitter {
       return 'spawned'
     } catch (err) {
       console.error(`Failed to spawn agent ${managed.state.id}:`, err)
+      managed.state.endedAt = new Date().toISOString()
       this.updateStatus(managed.state.id, 'errored')
       return 'errored'
     }

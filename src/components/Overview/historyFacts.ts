@@ -35,6 +35,8 @@ function toStatusText(e: OverviewEvent): string {
       return 'finished'
     case 'failed':
       return 'failed'
+    case 'not-running':
+      return 'stopped'
     default:
       return 'changed status'
   }

@@ -83,6 +83,9 @@ export function SessionsBoard({ sessions, selectedId, ...rest }: SessionsBoardPr
               </ul>
             )}
             {column.hidden > 0 && <p className={styles.boardMore}>and {column.hidden} more in the list</p>}
+            {column.notRunning ? (
+              <p className={styles.boardMore}>{column.notRunning} not running, in the list</p>
+            ) : null}
           </section>
         ))}
       </div>

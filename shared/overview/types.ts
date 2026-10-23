@@ -1,7 +1,15 @@
 import type { ModelId, ProviderId } from '../types'
 
 /** What an agent is doing right now, as shown in the Overview. */
-export type OverviewStatus = 'needs-you' | 'working' | 'idle' | 'starting' | 'finished' | 'failed'
+export type OverviewStatus =
+  | 'needs-you'
+  | 'working'
+  | 'idle'
+  | 'starting'
+  | 'finished'
+  | 'failed'
+  /** Restored or imported at startup and not run in this daemon run. */
+  | 'not-running'
 
 /** Why a session waits on the user. */
 export type WaitingReason = 'permission' | 'question' | 'other'
@@ -40,6 +48,10 @@ export interface OverviewSession {
   status: OverviewStatus
   /** Epoch ms when the derived status last changed (kept by the tracker). */
   statusSince: number
+  /** Epoch ms when its process ended, or its last activity when unknown; set for finished, failed and not-running. */
+  endedAt?: number
+  /** Exit code of the last run, when known. */
+  exitCode?: number
   waitingReason?: WaitingReason
   /** What the session asks, one line (Step 6). */
   waitingText?: string
@@ -59,10 +71,12 @@ export interface OverviewCounts {
   idle: number
   stale: number
   needsYou: number
-  /** Sessions whose process is alive or starting. */
+  /** Sessions whose process is alive or starting (not finished, failed or not-running). */
   open: number
   finished: number
   failed: number
+  /** Restored or imported sessions that have not run in this daemon run. */
+  notRunning: number
   total: number
   /** Longest time in `working`, `null` when none. */
   longestWorkingMs: number | null

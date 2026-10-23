@@ -88,6 +88,33 @@ describe('SessionDetails', () => {
     expect(screen.getByText('main')).toBeTruthy()
   })
 
+  it('shows when an ended session ended, and its exit code', async () => {
+    const at = NOW - 2 * 3_600_000
+    const { rerender } = render(
+      <SessionDetails
+        agentId="a1"
+        session={session({ status: 'failed', endedAt: at, statusSince: at, exitCode: 2 })}
+        now={NOW}
+        onClose={vi.fn()}
+        onJumpToAgent={vi.fn()}
+      />
+    )
+    expect(await screen.findByText(/^Ended at .*2h ago/)).toBeTruthy()
+    expect(screen.getByText('Exit code')).toBeTruthy()
+    expect(screen.getByText('2')).toBeTruthy()
+    rerender(
+      <SessionDetails
+        agentId="a1"
+        session={session({ status: 'not-running', endedAt: at, statusSince: at })}
+        now={NOW}
+        onClose={vi.fn()}
+        onJumpToAgent={vi.fn()}
+      />
+    )
+    expect(screen.getByText(/^Last active .*2h ago/)).toBeTruthy()
+    expect(screen.queryByText('Exit code')).toBeNull()
+  })
+
   it('closes with Esc', () => {
     const onClose = vi.fn()
     render(<SessionDetails agentId="a1" session={session()} now={NOW} onClose={onClose} onJumpToAgent={vi.fn()} />)

@@ -39,7 +39,7 @@ const POINT_TIME = /^\{"point":\[(\d{1,16}),/
 const ENDED_KEPT_MS = 60 * 60 * 1000
 
 const STATUSES: ReadonlySet<string> = new Set<OverviewStatus>([
-  'needs-you', 'working', 'idle', 'starting', 'finished', 'failed'
+  'needs-you', 'working', 'idle', 'starting', 'finished', 'failed', 'not-running'
 ])
 const EVENT_KINDS: ReadonlySet<string> = new Set(['appeared', 'status', 'ended', 'resumed'])
 const REASONS: ReadonlySet<string> = new Set(['permission', 'question', 'other'])
@@ -405,10 +405,11 @@ export class HistoryStore {
     if (this.pending.length > MAX_PENDING_LINES) this.pending.splice(0, this.pending.length - MAX_PENDING_LINES)
   }
 
-  /** The statuses a point keeps on disk: agents finished or failed for over an hour are left out. */
+  /** The statuses a point keeps on disk: agents finished or failed for over an hour, and not-running ones, are left out. */
   private diskStatuses(point: HistoryPoint): Record<string, OverviewStatus> {
     const out: Record<string, OverviewStatus> = {}
     for (const [id, st] of Object.entries(point.statuses)) {
+      if (st === 'not-running') continue
       if (st === 'finished' || st === 'failed') {
         const since = this.endedSince.get(id) ?? point.at
         this.endedSince.set(id, since)

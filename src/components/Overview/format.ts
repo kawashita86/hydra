@@ -50,3 +50,23 @@ export function formatMinute(at: number, now: number = Date.now()): string {
 export function isSameDay(a: number, b: number): boolean {
   return new Date(a).toDateString() === new Date(b).toDateString()
 }
+
+/**
+ * Relative time for a past moment: `just now`, `12m ago`, `3h ago`, then `yesterday 14:02`,
+ * `Oct 21`, or `Oct 21, 2025` for another year.
+ */
+export function formatAgo(at: number, now: number = Date.now()): string {
+  const diff = now - at
+  if (diff < 60_000) return 'just now'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`
+  const date = new Date(at)
+  const today = new Date(now)
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  }
+  return date.getFullYear() === today.getFullYear()
+    ? date.toLocaleDateString([], { day: 'numeric', month: 'short' })
+    : date.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })
+}

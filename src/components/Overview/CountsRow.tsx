@@ -12,10 +12,10 @@ interface CountsRowProps {
   openChart?: CountKey | null
 }
 
-type DotKind = 'working' | 'idle' | 'stale' | 'finished' | 'failed'
+type DotKind = 'working' | 'idle' | 'stale' | 'finished' | 'failed' | 'not-running'
 
 function Dot({ kind }: { kind: DotKind }) {
-  return <span className={`${dotStyles.dot} ${dotStyles[`dot_${kind}`]} ${styles.dot}`} aria-hidden="true" />
+  return <span className={`${dotStyles.dot} ${dotStyles[`dot_${kind.replace('-', '_')}`]} ${styles.dot}`} aria-hidden="true" />
 }
 
 function longest(ms: number | null): string {
@@ -70,6 +70,13 @@ export function CountsRow({ counts, onOpenChart, openChart }: CountsRowProps) {
           {counts.open} open · <Dot kind="finished" />
           {counts.finished} finished · <Dot kind="failed" />
           {counts.failed} failed
+          {counts.notRunning > 0 && (
+            <>
+              {' '}
+              · <Dot kind="not-running" />
+              {counts.notRunning} not running
+            </>
+          )}
         </dd>
       </div>
     </dl>

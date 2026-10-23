@@ -178,7 +178,7 @@ async function main(): Promise<void> {
 
   const shutdown = (): void => {
     console.log('[daemon] Shutting down...')
-    workspaceStore.setAgents(agentManager.exportWorkspaceAgents())
+    workspaceStore.setAgents(agentManager.exportWorkspaceAgents({ endingNow: true }))
     agentManager.killAll()
     overviewTracker.stop()
     overviewHistory.stop() // flushes what is buffered
