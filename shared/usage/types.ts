@@ -81,6 +81,24 @@ export interface UsageSummary {
   tokensChangePct: number | null
 }
 
+export type LimitWindowKind = 'session' | 'weekly' | 'weekly-model' | 'other'
+
+/** One plan-limit window (5-hour session, weekly, weekly for one model). */
+export interface LimitWindow {
+  provider: UsageProvider
+  /** Claude profile name or Codex account id; 'default' when unknown. */
+  account: string
+  /** Stable within (provider, account): 'session' | 'weekly' | 'weekly:<model-slug>' | other kind. */
+  id: string
+  kind: LimitWindowKind
+  /** Display label, e.g. '5-hour window', 'Weekly'. */
+  label: string
+  /** 0-100, clamped. */
+  usedPercent: number
+  /** Epoch ms. */
+  resetsAt: number | null
+}
+
 export function emptyTokens(): TokenCounts {
   return { input: 0, output: 0, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0 }
 }

@@ -1,6 +1,6 @@
 # Usage & limits — implementation plan
 
-> Status: **APPROVED 2026-10-23** (mockup A approved; mockup B to be confirmed before Step 8), in progress · Branch: `feat/usage-limits`
+> Status: **APPROVED 2026-10-23** (mockups A and B approved), in progress · Branch: `feat/usage-limits`
 > Workflow: each step is implemented by a Sonnet 5.5 subagent, then reviewed and committed.
 > Reference project: [JingbiaoMei/Tokdash](https://github.com/JingbiaoMei/Tokdash) (MIT), its **native menu-bar companion** (`companion/`), not its web dashboard.
 > Mockups: https://claude.ai/artifact/D49EVhNH8L73NFm8PxgmPV (A: header chip + popover, B: Overview card, C: states)
@@ -12,7 +12,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 0 — Branch, plan, spike on the live limit endpoints
 - [x] Step 1 — Usage model (pure, shared)
 - [x] Step 2 — Claude transcript scanner
-- [ ] Step 3 — Codex rollout scanner (tokens + passive limits)
+- [x] Step 3 — Codex rollout scanner (tokens + passive limits)
 - [ ] Step 4 — `UsageStore`: hourly buckets, file-offset cache, persisted
 - [ ] Step 5 — Claude plan limits (OAuth usage endpoint, per profile)
 - [ ] Step 6 — `UsageService` in the daemon, REST + WS, IPC to the renderer
