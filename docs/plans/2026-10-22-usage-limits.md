@@ -10,7 +10,7 @@
 Tick a step when it is merged into the feature branch, with tests passing (`npm run typecheck && npm test`).
 
 - [x] Step 0 — Branch, plan, spike on the live limit endpoints
-- [ ] Step 1 — Usage model (pure, shared)
+- [x] Step 1 — Usage model (pure, shared)
 - [ ] Step 2 — Claude transcript scanner
 - [ ] Step 3 — Codex rollout scanner (tokens + passive limits)
 - [ ] Step 4 — `UsageStore`: hourly buckets, file-offset cache, persisted
