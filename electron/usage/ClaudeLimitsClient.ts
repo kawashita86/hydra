@@ -1,21 +1,9 @@
 import { createHash } from 'crypto'
-import type { LimitWindow } from '@shared/usage/types'
+import type { ClaudeProfileLimits, LimitWindow } from '@shared/usage/types'
 import { parseClaudeOAuthUsage } from '@shared/usage/limits'
 import { readClaudeCredentials } from './claudeCredentials'
 
-export interface ClaudeProfileLimits {
-  /** Profile label ('default', 'work', ...). */
-  account: string
-  configDir: string
-  plan: string | null
-  status: 'ok' | 'not-signed-in' | 'expired' | 'unavailable' | 'rate-limited' | 'error' | 'keychain-denied'
-  /** Last good values when `status` is not 'ok' (may be empty). */
-  windows: LimitWindow[]
-  /** When `windows` were fetched. */
-  fetchedAt: number | null
-  /** Last attempt. */
-  checkedAt: number
-}
+export type { ClaudeProfileLimits }
 
 export interface ClaudeLimitsClientOptions {
   profiles: () => { configDir: string; label: string; isDefault: boolean }[]

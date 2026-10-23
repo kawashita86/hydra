@@ -29,6 +29,8 @@ import { z } from 'zod'
 
 const editorIdSchema = z.enum(['vscode', 'cursor', 'windsurf', 'antigravity', 'zed', 'finder', 'terminal'])
 const agentIdSchema = z.string().trim().min(1).max(128)
+const usagePeriodSchema = z.enum(['today', 'week', 'month'])
+const usageProjectSchema = z.string().max(4096)
 const projectDirSchema = z.string().trim().min(1).max(4096)
 const providerSchema = z.enum(['claude', 'codex', 'opencode'])
 const modelSchema = z.string().trim().min(1).max(128)
@@ -276,6 +278,25 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC.OVERVIEW_HISTORY, async (_event, sinceMs: number) => {
     return getDaemonClient().getOverviewHistory(z.number().finite().parse(sinceMs))
+  })
+
+  ipcMain.handle(IPC.USAGE_STATE_GET, async () => {
+    return getDaemonClient().getUsageState()
+  })
+
+  ipcMain.handle(IPC.USAGE_SUMMARY_GET, async (_event, period: unknown, projectKey?: unknown) => {
+    return getDaemonClient().getUsageSummary(
+      usagePeriodSchema.parse(period),
+      usageProjectSchema.optional().parse(projectKey)
+    )
+  })
+
+  ipcMain.handle(IPC.USAGE_REFRESH, async () => {
+    return getDaemonClient().refreshUsage()
+  })
+
+  ipcMain.handle(IPC.USAGE_VISIBLE, async () => {
+    await getDaemonClient().setUsageVisible()
   })
 
   ipcMain.handle(IPC.OVERVIEW_WAITS, async () => {

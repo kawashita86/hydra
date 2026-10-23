@@ -18,6 +18,7 @@ import type {
   FreeTerminalLayout
 } from '@shared/types'
 import type { OverviewEvent, OverviewSnapshot } from '@shared/overview/types'
+import type { UsageState } from '@shared/usage/types'
 
 // ── REST API ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ export type WsServerMessage =
   | { type: 'overview:snapshot'; payload: OverviewSnapshot }
   /** New events of one poll, sent apart from snapshots (which are only sent when the sessions change). */
   | { type: 'overview:events'; payload: OverviewEvent[] }
+  | { type: 'usage:changed'; payload: UsageState }
   | { type: 'notification'; payload: HydraNotification }
   | { type: 'config:changed'; payload: AppConfig }
   | { type: 'headless:event'; payload: { runId: string; data: string } }

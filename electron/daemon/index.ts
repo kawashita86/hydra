@@ -24,6 +24,7 @@ import { writeLockFile, removeLockFile } from './lock'
 import { HydraMcpServer } from '../mcp/McpServer'
 import { SkillScanner } from '../skills/SkillScanner'
 import { getDefaultModelForProvider } from '@shared/types'
+import type { OverviewEvent } from '@shared/overview/types'
 import { OverviewTracker } from '../overview/OverviewTracker'
 import { ClaudeRegistryReader } from '../overview/claudeRegistry'
 import { ProcessTableReader } from '../overview/processTree'
@@ -32,6 +33,10 @@ import { AgentDetailsReader } from '../overview/agentDetails'
 import { GitInfoCache } from '../overview/gitInfo'
 import { HistoryStore } from '../overview/HistoryStore'
 import { discoverClaudeConfigDirs } from '../sessions/claudeProfiles'
+import { UsageService } from '../usage/UsageService'
+import { UsageStore, defaultUsageSources } from '../usage/UsageStore'
+import { ClaudeLimitsClient } from '../usage/ClaudeLimitsClient'
+import { listClaudeProfiles } from '../sessions/claudeProfiles'
 import { fixPath } from '../util/fix-path'
 
 // ── Parse CLI args ────────────────────────────────────────────────────────────
@@ -175,6 +180,7 @@ async function main(): Promise<void> {
     agentManager.killAll()
     overviewTracker.stop()
     overviewHistory.stop() // flushes what is buffered
+    usageService.stop() // flushes the usage cache
     mcpServer?.stop()
     server.stop()
     removeLockFile(lockPath)
@@ -201,6 +207,28 @@ async function main(): Promise<void> {
 
   notificationService.connectOverviewEvents(overviewTracker)
 
+  // Single writer for <userData>/usage-cache too (single-instance daemon).
+  const usageService = new UsageService({
+    store: new UsageStore({ dir: join(userDataPath, 'usage-cache'), sources: () => defaultUsageSources() }),
+    limits: new ClaudeLimitsClient({
+      profiles: () => listClaudeProfiles(),
+      version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : undefined
+    })
+  })
+
+  // A Claude agent that goes working -> idle has just written a transcript and moved the limits.
+  // Events carry no provider, so it is looked up in the tracker's latest snapshot.
+  overviewTracker.on('events', (events: OverviewEvent[]) => {
+    const snapshot = overviewTracker.peekSnapshot()
+    for (const e of events) {
+      if (e.kind !== 'status' || e.from !== 'working' || e.to !== 'idle') continue
+      if (snapshot?.sessions.find((s) => s.agentId === e.agentId)?.provider === 'claude') {
+        usageService.notifyAgentIdle()
+        break
+      }
+    }
+  })
+
   const server = new DaemonServer({
     socketPath,
     agentManager,
@@ -214,11 +242,13 @@ async function main(): Promise<void> {
     skillScanner,
     overviewTracker,
     overviewHistory,
+    usageService,
     onShutdown: shutdown
   })
 
   await server.start()
   overviewTracker.start()
+  usageService.start()
 
   // Write lock file
   writeLockFile(lockPath, {

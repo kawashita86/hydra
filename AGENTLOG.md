@@ -644,3 +644,13 @@ Mistakes, gotchas, and lessons learned during development. Check here before sta
 **Context**: The tab badge and window title need the snapshot from every view.
 
 **Do**: `App` owns `useOverviewSnapshot()` and passes it to `OverviewView` (`overview` prop). The 1 s `now` tick lives in `useNow()` inside `OverviewView`; never put it in App or the whole app re-renders every second.
+
+### Usage service: daemon owns the cache, version comes from `define`
+
+**Context**: `UsageService` (daemon) owns `<userData>/usage-cache` and the Claude OAuth client; the renderer only gets `UsageState` (percentages, reset times, labels) over `/usage/*` + WS `usage:changed`.
+
+**Gotchas**:
+- Single writer, like the Overview history: never open `usage-cache` from Electron main; read through the daemon routes. `shutdown()` in `daemon/index.ts` must call `usageService.stop()` (flushes the cache).
+- The daemon has no `app.getVersion()` and `npm_package_version` is unset when packaged; `electron.vite.config.ts` injects `__APP_VERSION__` (typed in `electron/globals.d.ts`) for the User-Agent.
+- Events from the Overview tracker carry no provider; look it up in `peekSnapshot().sessions` by `agentId` (done in `daemon/index.ts` for working -> idle).
+- "Indexing" is shown only for the first full index (`lastScanAt === null`); showing it for every 60 s incremental scan would flicker the chip.

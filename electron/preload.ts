@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/types'
 import type { KeybindingRule } from '@shared/keybindings'
+import type { UsagePeriod, UsageState, UsageSummary } from '@shared/usage/types'
 import type { AgentDetails, HistoryResponse, OverviewEvent, OverviewSnapshot, WaitsResponse } from '@shared/overview/types'
 import type {
   CreateAgentPayload,
@@ -123,6 +124,23 @@ const hydraApi = {
       callback(snapshot)
     ipcRenderer.on(IPC.OVERVIEW_SNAPSHOT, handler)
     return () => { ipcRenderer.removeListener(IPC.OVERVIEW_SNAPSHOT, handler) }
+  },
+
+  // Usage & limits
+  getUsageState: (): Promise<UsageState> => ipcRenderer.invoke(IPC.USAGE_STATE_GET),
+
+  getUsageSummary: (period: UsagePeriod, projectKey?: string): Promise<UsageSummary> =>
+    ipcRenderer.invoke(IPC.USAGE_SUMMARY_GET, period, projectKey),
+
+  refreshUsage: (): Promise<UsageState> => ipcRenderer.invoke(IPC.USAGE_REFRESH),
+
+  /** Ping while a usage surface is on screen (about every 30 s) so limits are polled faster. */
+  setUsageVisible: (): Promise<void> => ipcRenderer.invoke(IPC.USAGE_VISIBLE),
+
+  onUsageChanged: (callback: (state: UsageState) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: UsageState) => callback(state)
+    ipcRenderer.on(IPC.USAGE_CHANGED, handler)
+    return () => { ipcRenderer.removeListener(IPC.USAGE_CHANGED, handler) }
   },
 
   // Config

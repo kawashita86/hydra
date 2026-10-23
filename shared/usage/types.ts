@@ -1,3 +1,5 @@
+import type { CodexParsedLimits } from './codexLine'
+
 export type UsageProvider = 'claude' | 'codex'
 export const USAGE_PROVIDERS: readonly UsageProvider[] = ['claude', 'codex']
 export type UsagePeriod = 'today' | 'week' | 'month'
@@ -115,4 +117,37 @@ export function addTokens(a: TokenCounts, b: TokenCounts): TokenCounts {
 
 export function totalTokens(t: TokenCounts): number {
   return t.input + t.output + t.cacheWrite5m + t.cacheWrite1h + t.cacheRead
+}
+
+/** Plan limits of one Claude profile. Only percentages, times and labels: never a credential. */
+export interface ClaudeProfileLimits {
+  /** Profile label ('default', 'work', ...). */
+  account: string
+  configDir: string
+  plan: string | null
+  status: 'ok' | 'not-signed-in' | 'expired' | 'unavailable' | 'rate-limited' | 'error' | 'keychain-denied'
+  /** Last good values when `status` is not 'ok' (may be empty). */
+  windows: LimitWindow[]
+  /** When `windows` were fetched. */
+  fetchedAt: number | null
+  /** Last attempt. */
+  checkedAt: number
+}
+
+export interface UsageScanProgress {
+  filesDone: number
+  filesTotal: number
+  bytesDone: number
+  bytesTotal: number
+}
+
+/** What the renderer shows of the usage service; pushed on change. */
+export interface UsageState {
+  claude: ClaudeProfileLimits[]
+  /** Passive limits from the newest Codex rollout line, `null` when none was seen. */
+  codex: CodexParsedLimits | null
+  indexing: { indexing: boolean; progress: UsageScanProgress | null; lastScanAt: number | null }
+  /** Bumps whenever the store's data changed; the renderer refetches summaries when it changes. */
+  dataVersion: number
+  updatedAt: number
 }

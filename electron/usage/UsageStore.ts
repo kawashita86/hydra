@@ -4,7 +4,7 @@ import { flushCodexCompactions, initialCodexFileState, parseCodexLine, type Code
 import { parseClaudeUsageLine } from '@shared/usage/claudeLine'
 import { PRICING_VERSION, estimateCost } from '@shared/usage/pricing'
 import { summarize } from '@shared/usage/summary'
-import { addTokens, type UsageBucket, type UsagePeriod, type UsageProvider, type UsageRecord, type UsageSummary } from '@shared/usage/types'
+import { addTokens, type UsageScanProgress, type UsageBucket, type UsagePeriod, type UsageProvider, type UsageRecord, type UsageSummary } from '@shared/usage/types'
 import { discoverClaudeProjectsDirs } from '../sessions/claudeProfiles'
 import { nodeUsageFs, type UsageFileInfo, type UsageFs } from './usageFiles'
 
@@ -27,12 +27,7 @@ export interface UsageStoreOptions {
   chunkBytes?: number
 }
 
-export interface UsageScanProgress {
-  filesDone: number
-  filesTotal: number
-  bytesDone: number
-  bytesTotal: number
-}
+export type { UsageScanProgress }
 
 export interface UsageStoreStatus {
   indexing: boolean

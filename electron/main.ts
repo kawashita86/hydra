@@ -232,6 +232,12 @@ app.whenReady().then(async () => {
       })
     })
 
+    daemonClient.on('usage:changed', (state) => {
+      BrowserWindow.getAllWindows().forEach((win) => {
+        win.webContents.send(IPC.USAGE_CHANGED, state)
+      })
+    })
+
     daemonClient.on('notification', (notification) => {
       notificationService.push(notification)
     })

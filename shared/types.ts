@@ -328,6 +328,11 @@ export const IPC = {
 
   // Usage dashboard (ccusage)
   USAGE_DASHBOARD_GET: 'usage:dashboard-get',
+  USAGE_STATE_GET: 'usage:state-get',
+  USAGE_SUMMARY_GET: 'usage:summary-get',
+  USAGE_REFRESH: 'usage:refresh',
+  USAGE_VISIBLE: 'usage:visible',
+  USAGE_CHANGED: 'usage:changed',
 
   // App updates
   UPDATE_GET_STATE: 'update:get-state',
