@@ -1,4 +1,5 @@
 // Adapted from Tokdash (MIT, © JingbiaoMei): src/tokdash/sources/quota/claude.py
+import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from './settings'
 import type { LimitWindow, LimitWindowKind } from './types'
 
 type Obj = Record<string, unknown>
@@ -135,12 +136,19 @@ export function pickChipWindows(windows: LimitWindow[]): { session: LimitWindow 
   return { session, weekly }
 }
 
-/** Percent at which a window counts as "near its limit" (the popover's Low filter, later the alerts). */
-export const DEFAULT_LIMIT_ALERTS = { session: 80, weekly: 90, other: 85 } as const
+/** Percent at which a window counts as "near its limit" when no settings are given. */
+export const DEFAULT_LIMIT_ALERTS = {
+  session: DEFAULT_USAGE_SETTINGS.sessionAlertPercent,
+  weekly: DEFAULT_USAGE_SETTINGS.weeklyAlertPercent,
+  other: 85
+} as const
 
-/** Alert level of a window; per-model weekly windows use the weekly level. */
-export function limitAlertLevel(w: Pick<LimitWindow, 'kind'>): number {
-  if (w.kind === 'session') return DEFAULT_LIMIT_ALERTS.session
-  if (w.kind === 'weekly' || w.kind === 'weekly-model') return DEFAULT_LIMIT_ALERTS.weekly
+/** Alert level of a window; per-model weekly windows use the weekly level. Defaults apply without settings. */
+export function limitAlertLevel(
+  w: Pick<LimitWindow, 'kind'>,
+  settings?: Pick<UsageSettings, 'sessionAlertPercent' | 'weeklyAlertPercent'>
+): number {
+  if (w.kind === 'session') return settings?.sessionAlertPercent ?? DEFAULT_LIMIT_ALERTS.session
+  if (w.kind === 'weekly' || w.kind === 'weekly-model') return settings?.weeklyAlertPercent ?? DEFAULT_LIMIT_ALERTS.weekly
   return DEFAULT_LIMIT_ALERTS.other
 }

@@ -102,7 +102,17 @@ const appConfigPatchSchema = z
     freeTerminalScrollbackLines: z.number().int().min(100).max(100000).optional(),
     gitPanelDisplayMode: z.enum(['overlay', 'split']).optional(),
     editorPanelDisplayMode: z.enum(['overlay', 'split']).optional(),
-    claudeProfileByProject: z.record(z.string().min(1).max(4096), z.string().max(4096)).optional()
+    claudeProfileByProject: z.record(z.string().min(1).max(4096), z.string().max(4096)).optional(),
+    usage: z
+      .object({
+        alertsEnabled: z.boolean(),
+        sessionAlertPercent: z.number().int().min(50).max(100),
+        weeklyAlertPercent: z.number().int().min(50).max(100),
+        chipProvider: z.enum(['auto', 'claude', 'codex']),
+        showCost: z.boolean()
+      })
+      .strict()
+      .optional()
   })
   .strict()
 const headlessStartSchema = z.object({

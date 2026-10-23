@@ -1,5 +1,6 @@
 import { type UsagePeriod, type UsageState, type UsageSummary } from '@shared/usage/types'
 import { formatChange, formatCompactTokens, formatExactTokens, formatUsd } from './format'
+import { useUsageSettings } from './UsageSettingsContext'
 import { ProviderLegend } from './ProviderLegend'
 import { UsageBars } from './UsageBars'
 import styles from './TokensPanel.module.css'
@@ -27,6 +28,7 @@ export function TokensPanel({ period, summary, indexing }: TokensPanelProps) {
 }
 
 function Summary({ period, summary }: { period: UsagePeriod; summary: UsageSummary }) {
+  const { showCost } = useUsageSettings()
   const changeText = formatChange(summary.tokensChangePct, period, 'tokens')
   const share = (tokens: number): number => (summary.totalTokens > 0 ? (tokens / summary.totalTokens) * 100 : 0)
 
@@ -37,8 +39,14 @@ function Summary({ period, summary }: { period: UsagePeriod; summary: UsageSumma
           {formatCompactTokens(summary.totalTokens)}
         </span>
         <span className={styles.heroUnit}>
-          tokens · {summary.costPartial ? '≥' : '~'}
-          {formatUsd(summary.costUsd)} API-equivalent
+          tokens
+          {showCost && (
+            <>
+              {' · '}
+              {summary.costPartial ? '≥' : '~'}
+              {formatUsd(summary.costUsd)} API-equivalent
+            </>
+          )}
         </span>
       </div>
       <p className={styles.muted}>

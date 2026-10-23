@@ -109,6 +109,8 @@ interface DaemonServerOptions {
   overviewHistory?: { query(sinceMs: number): HistoryResponse; waits(): WaitsResponse['ledger'] }
   /** Answers `/usage/*`; without it the routes answer empty data. */
   usageService?: UsageServiceLike
+  /** Called after `PATCH /config` saved (e.g. the usage alerts were just turned on). */
+  onConfigChanged?: (config: AppConfig) => void
   onShutdown: () => void
 }
 
@@ -129,6 +131,7 @@ export class DaemonServer {
   private readonly overviewTracker: OverviewTracker
   private readonly overviewHistory: DaemonServerOptions['overviewHistory']
   private readonly usageService: UsageServiceLike | undefined
+  private readonly onConfigChanged: ((config: AppConfig) => void) | undefined
   private readonly onShutdown: () => void
   private readonly startedAt = Date.now()
   private testPty: IPty | null = null
@@ -152,6 +155,7 @@ export class DaemonServer {
     this.overviewTracker = options.overviewTracker
     this.overviewHistory = options.overviewHistory
     this.usageService = options.usageService
+    this.onConfigChanged = options.onConfigChanged
     this.onShutdown = options.onShutdown
   }
 
@@ -666,6 +670,11 @@ export class DaemonServer {
         const body = await this.readBody<Partial<AppConfig>>(req)
         const updated = this.configStore.set(body)
         this.broadcast({ type: 'config:changed', payload: updated })
+        try {
+          this.onConfigChanged?.(updated)
+        } catch {
+          /* a listener never fails the save */
+        }
         return this.json(res, 200, updated)
       }
 

@@ -3,6 +3,7 @@ import { limitSeverity } from '@shared/usage/limits'
 import { useCoarseNow, usePersistedChoice, useUsageSummary, useUsageVisibility } from '@/hooks/useUsage'
 import { formatAge, formatChange, formatCompactTokens, formatExactTokens, formatResets, formatUpdated, formatUsd } from '../Usage/format'
 import { buildLimitTiles, newestFetch, type LimitTile } from '../Usage/model'
+import { useUsageSettings } from '../Usage/UsageSettingsContext'
 import { ProviderDot } from '../Usage/ProviderDot'
 import { ProviderLegend } from '../Usage/ProviderLegend'
 import { Segmented } from '../Usage/Segmented'
@@ -28,6 +29,7 @@ interface UsageCardProps {
 /** The Overview "Usage & limits" card: plan limits (account-wide) and tokens of one period. */
 export function UsageCard({ state, projectDir, onOpenReport }: UsageCardProps) {
   const now = useCoarseNow(30_000)
+  const { showCost } = useUsageSettings()
   const [period, setPeriod] = usePersistedChoice<UsagePeriod>('hydra.usage.cardPeriod', 'week', PERIODS)
   // Only mounted while the Overview is shown, so this pings exactly while the card is visible.
   useUsageVisibility(true)
@@ -122,7 +124,7 @@ export function UsageCard({ state, projectDir, onOpenReport }: UsageCardProps) {
                 <span className={styles.heroUnit}>
                   {[
                     'tokens',
-                    `${summary.costPartial ? '≥' : '~'}${formatUsd(summary.costUsd)} API-equivalent`,
+                    showCost ? `${summary.costPartial ? '≥' : '~'}${formatUsd(summary.costUsd)} API-equivalent` : '',
                     formatChange(summary.tokensChangePct, period)
                   ]
                     .filter(Boolean)

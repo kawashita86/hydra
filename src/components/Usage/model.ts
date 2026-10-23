@@ -1,4 +1,5 @@
 import { limitAlertLevel, pickChipWindows } from '@shared/usage/limits'
+import type { UsageChipProvider, UsageSettings } from '@shared/usage/settings'
 import type { ClaudeProfileLimits, LimitWindow, UsageProvider, UsageState } from '@shared/usage/types'
 
 /** Values older than this render dimmed. */
@@ -31,10 +32,17 @@ export interface ChipWindows {
   weekly: TimedWindow | null
 }
 
-/** The most-used session and weekly window over every visible account. */
-export function chipWindows(state: UsageState | null): ChipWindows {
+/**
+ * The most-used session and weekly window over every visible account, or of one provider
+ * (`chipProvider`); a provider with no session and no weekly window falls back to all.
+ */
+export function chipWindows(state: UsageState | null, chipProvider: UsageChipProvider = 'auto'): ChipWindows {
   if (!state) return { session: null, weekly: null }
-  const timed = allTimedWindows(state)
+  let timed = allTimedWindows(state)
+  if (chipProvider !== 'auto') {
+    const own = timed.filter((t) => t.window.provider === chipProvider)
+    if (own.some((t) => t.window.kind === 'session' || t.window.kind === 'weekly')) timed = own
+  }
   const picked = pickChipWindows(timed.map((t) => t.window))
   const find = (w: LimitWindow | null): TimedWindow | null => (w ? (timed.find((t) => t.window === w) ?? null) : null)
   return { session: find(picked.session), weekly: find(picked.weekly) }
@@ -90,10 +98,13 @@ export function buildLimitGroups(state: UsageState): LimitGroup[] {
 export const LOW_MAX_ROWS = 2
 
 /** The windows at or above their alert level, most used first, at most `LOW_MAX_ROWS`. */
-export function lowWindows(groups: LimitGroup[]): Set<LimitWindow> {
+export function lowWindows(
+  groups: LimitGroup[],
+  settings?: Pick<UsageSettings, 'sessionAlertPercent' | 'weeklyAlertPercent'>
+): Set<LimitWindow> {
   const near = groups
     .flatMap((g) => g.windows.map((t) => t.window))
-    .filter((w) => w.usedPercent >= limitAlertLevel(w))
+    .filter((w) => w.usedPercent >= limitAlertLevel(w, settings))
     .sort((a, b) => b.usedPercent - a.usedPercent)
     .slice(0, LOW_MAX_ROWS)
   return new Set(near)

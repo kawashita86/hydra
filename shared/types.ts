@@ -1,3 +1,5 @@
+import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from './usage/settings'
+
 // ── Agent ────────────────────────────────────────────────────────────────────
 
 export type AgentStatus = 'running' | 'idle' | 'errored' | 'starting'
@@ -195,6 +197,8 @@ export interface AppConfig {
    * inherit; the longest matching path wins. `''` forces the default profile.
    */
   claudeProfileByProject: Record<string, string>
+  // ── Usage & limits ───────────────────────────────────────────────────────
+  usage: UsageSettings
 }
 
 /** A Claude Code config dir found on this machine (`~/.claude` or `~/.claude-<name>`). */
@@ -242,7 +246,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   freeTerminalScrollbackLines: 5000,
   gitPanelDisplayMode: 'overlay',
   editorPanelDisplayMode: 'overlay',
-  claudeProfileByProject: {}
+  claudeProfileByProject: {},
+  usage: { ...DEFAULT_USAGE_SETTINGS }
 }
 
 // ── IPC Channels ─────────────────────────────────────────────────────────────
@@ -646,6 +651,7 @@ export type NotificationType =
   | 'agent_started'
   | 'headless_completed'
   | 'headless_errored'
+  | 'usage_limit'
 
 export interface HydraNotification {
   id: string

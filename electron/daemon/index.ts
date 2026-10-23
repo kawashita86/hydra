@@ -25,6 +25,7 @@ import { HydraMcpServer } from '../mcp/McpServer'
 import { SkillScanner } from '../skills/SkillScanner'
 import { getDefaultModelForProvider } from '@shared/types'
 import type { OverviewEvent } from '@shared/overview/types'
+import type { UsageState } from '@shared/usage/types'
 import { OverviewTracker } from '../overview/OverviewTracker'
 import { ClaudeRegistryReader } from '../overview/claudeRegistry'
 import { ProcessTableReader } from '../overview/processTree'
@@ -34,6 +35,7 @@ import { GitInfoCache } from '../overview/gitInfo'
 import { HistoryStore } from '../overview/HistoryStore'
 import { discoverClaudeConfigDirs } from '../sessions/claudeProfiles'
 import { UsageService } from '../usage/UsageService'
+import { UsageAlerts } from '../usage/UsageAlerts'
 import { UsageStore, defaultUsageSources } from '../usage/UsageStore'
 import { ClaudeLimitsClient } from '../usage/ClaudeLimitsClient'
 import { listClaudeProfiles } from '../sessions/claudeProfiles'
@@ -216,6 +218,18 @@ async function main(): Promise<void> {
     })
   })
 
+  // Opt-in low-limit notifications; the settings are read from the daemon's config on every evaluation.
+  const usageAlerts = new UsageAlerts({
+    dir: join(userDataPath, 'usage-cache'),
+    settings: () => configStore.get().usage,
+    notify: (n) => notificationService.push(n),
+    runningAgents: (provider) =>
+      overviewTracker
+        .peekSnapshot()
+        ?.sessions.filter((s) => s.provider === provider && (s.status === 'working' || s.status === 'needs-you')).length ?? 0
+  })
+  usageService.on('changed', (state: UsageState) => usageAlerts.evaluate(state))
+
   // A Claude agent that goes working -> idle has just written a transcript and moved the limits.
   // Events carry no provider, so it is looked up in the tracker's latest snapshot.
   overviewTracker.on('events', (events: OverviewEvent[]) => {
@@ -243,6 +257,7 @@ async function main(): Promise<void> {
     overviewTracker,
     overviewHistory,
     usageService,
+    onConfigChanged: () => usageAlerts.evaluate(usageService.state()),
     onShutdown: shutdown
   })
 

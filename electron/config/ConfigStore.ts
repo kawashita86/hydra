@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, watchFile, writeFileSync } from 'f
 import { join } from 'path'
 import type { AppConfig } from '@shared/types'
 import { DEFAULT_CONFIG, MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
+import { normalizeUsageSettings } from '@shared/usage/settings'
 
 export class ConfigStore {
   private readonly configPath: string
@@ -49,7 +50,9 @@ export class ConfigStore {
   }
 
   set(partial: Partial<AppConfig>): AppConfig {
-    this.config = this.sanitize({ ...this.config, ...partial })
+    // `usage` merges field by field so a partial block never resets the other fields.
+    const usage = partial.usage ? { ...this.config.usage, ...partial.usage } : this.config.usage
+    this.config = this.sanitize({ ...this.config, ...partial, usage })
     this.lastSerialized = JSON.stringify(this.config)
     this.save(this.config)
     return this.get()
@@ -67,10 +70,7 @@ export class ConfigStore {
 
   private sanitize(config: AppConfig): AppConfig {
     const maxAgents = Math.max(1, Math.min(MAX_CONCURRENT_AGENTS_HARD_LIMIT, config.maxAgents))
-    if (maxAgents === config.maxAgents) {
-      return config
-    }
-    return { ...config, maxAgents }
+    return { ...config, maxAgents, usage: normalizeUsageSettings(config.usage) }
   }
 
   private save(config: AppConfig): void {

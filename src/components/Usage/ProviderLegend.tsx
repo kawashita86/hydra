@@ -1,5 +1,6 @@
 import { USAGE_PROVIDERS, type UsageSummary } from '@shared/usage/types'
 import { formatCompactTokens, formatUsd } from './format'
+import { useUsageSettings } from './UsageSettingsContext'
 import { ProviderDot } from './ProviderDot'
 import styles from './ProviderLegend.module.css'
 
@@ -7,6 +8,7 @@ export const PROVIDER_NAMES = { claude: 'Claude', codex: 'Codex' } as const
 
 /** One row per provider: tokens and API-equivalent cost of the period. */
 export function ProviderLegend({ summary }: { summary: UsageSummary }) {
+  const { showCost } = useUsageSettings()
   return (
     <ul className={styles.providers}>
       {USAGE_PROVIDERS.map((id) => {
@@ -19,10 +21,12 @@ export function ProviderLegend({ summary }: { summary: UsageSummary }) {
             {used ? (
               <>
                 <span className={styles.providerTokens}>{formatCompactTokens(p.totalTokens)}</span>
-                <span className={styles.providerCost}>
-                  {p.costPartial ? '≥' : ''}
-                  {formatUsd(p.costUsd)}
-                </span>
+                {showCost && (
+                  <span className={styles.providerCost}>
+                    {p.costPartial ? '≥' : ''}
+                    {formatUsd(p.costUsd)}
+                  </span>
+                )}
               </>
             ) : (
               <span className={styles.providerNone}>no usage</span>

@@ -3,6 +3,7 @@ import { limitSeverity } from '@shared/usage/limits'
 import type { UsageState } from '@shared/usage/types'
 import { Tooltip } from '../Tooltip'
 import { useCoarseNow } from '../../hooks/useUsage'
+import { useUsageSettings } from './UsageSettingsContext'
 import { chipWindows, isStale, sourceLabel, type TimedWindow } from './model'
 import styles from './UsageChip.module.css'
 
@@ -29,7 +30,8 @@ function Meter({ label, timed, now }: { label: string; timed: TimedWindow; now: 
 /** The header's usage button: two mini meters (5h, week), or plain "Usage" when no limits are known. */
 export const UsageChip = forwardRef<HTMLButtonElement, UsageChipProps>(function UsageChip({ state, open, onClick }, ref) {
   const now = useCoarseNow()
-  const { session, weekly } = chipWindows(state)
+  const { chipProvider } = useUsageSettings()
+  const { session, weekly } = chipWindows(state, chipProvider)
   const high = [session, weekly].some((t) => t && limitSeverity(t.window.usedPercent) === 'high')
 
   const spoken = [

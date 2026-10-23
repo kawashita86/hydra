@@ -2,6 +2,7 @@ import { limitSeverity } from '@shared/usage/limits'
 import type { UsageState } from '@shared/usage/types'
 import { formatAge, formatResets } from './format'
 import { buildLimitGroups, lowWindows, profileProblem, type LimitGroup, type TimedWindow } from './model'
+import { useUsageSettings } from './UsageSettingsContext'
 import { ProviderDot } from './ProviderDot'
 import styles from './LimitRows.module.css'
 
@@ -15,11 +16,12 @@ interface LimitRowsProps {
 
 /** The plan-limit groups of the popover, one per provider account. */
 export function LimitRows({ state, filter, now }: LimitRowsProps) {
+  const settings = useUsageSettings()
   const groups = buildLimitGroups(state)
   if (groups.length === 0) return <p className={styles.quiet}>No plan limits yet.</p>
 
   if (filter === 'low') {
-    const low = lowWindows(groups)
+    const low = lowWindows(groups, settings)
     const visible = groups
       .map((g) => ({ ...g, windows: g.windows.filter((t) => low.has(t.window)) }))
       .filter((g) => g.windows.length > 0)

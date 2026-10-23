@@ -19,6 +19,7 @@ import { RemoteControlModal } from './components/RemoteControl/RemoteControlModa
 import { PreflightTestModal } from './components/PreflightTestModal/PreflightTestModal'
 import { useAgents } from './hooks/useAgents'
 import { useConfig } from './hooks/useConfig'
+import { UsageSettingsProvider } from './components/Usage/UsageSettingsContext'
 import { TerminalConfigContext, deriveTerminalConfig } from './hooks/useTerminalConfig'
 import { useKeybindings } from './hooks/useKeybindings'
 import { useViewMode } from './hooks/useViewMode'
@@ -700,6 +701,7 @@ export default function App() {
 
   return (
     <TerminalConfigContext.Provider value={terminalVisualConfig}>
+    <UsageSettingsProvider settings={config.usage}>
     <div className={styles.app}>
       <Header
         viewMode={viewMode}
@@ -1141,6 +1143,7 @@ export default function App() {
 
       <NotificationToast notifications={notifications} onDismiss={dismissNotification} />
     </div>
+    </UsageSettingsProvider>
     </TerminalConfigContext.Provider>
   )
 }

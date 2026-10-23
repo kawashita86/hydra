@@ -181,7 +181,8 @@ const baseConfig: AppConfig = {
   freeTerminalScrollbackLines: 5000,
   gitPanelDisplayMode: 'overlay',
   editorPanelDisplayMode: 'overlay',
-  claudeProfileByProject: {}
+  claudeProfileByProject: {},
+  usage: { alertsEnabled: false, sessionAlertPercent: 80, weeklyAlertPercent: 90, chipProvider: 'auto', showCost: true }
 }
 
 let currentConfig: AppConfig = { ...baseConfig }
