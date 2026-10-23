@@ -14,7 +14,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 2 — Claude transcript scanner
 - [x] Step 3 — Codex rollout scanner (tokens + passive limits)
 - [x] Step 4 — `UsageStore`: hourly buckets, file-offset cache, persisted
-- [ ] Step 5 — Claude plan limits (OAuth usage endpoint, per profile)
+- [x] Step 5 — Claude plan limits (OAuth usage endpoint, per profile)
 - [ ] Step 6 — `UsageService` in the daemon, REST + WS, IPC to the renderer
 - [ ] Step 7 — Header chip + popover (mockup A)
 - [ ] Step 8 — Overview "Usage & limits" card (mockup B)
