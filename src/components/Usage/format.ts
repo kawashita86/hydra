@@ -61,3 +61,17 @@ export function formatResets(resetsAt: number | null, now: number): string {
   const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   return `resets ${weekday} ${time}`
 }
+
+const VERSUS = { today: 'yesterday', week: 'last week', month: 'last month' } as const
+
+/** `▼ 8% tokens vs last week`, `no change vs yesterday`; `null` when there is nothing to compare. */
+export function formatChange(
+  change: number | null,
+  period: keyof typeof VERSUS,
+  noun = ''
+): string | null {
+  if (change === null) return null
+  const rounded = Math.round(change)
+  if (rounded === 0) return `no change vs ${VERSUS[period]}`
+  return `${rounded > 0 ? '▲' : '▼'} ${Math.abs(rounded)}%${noun ? ` ${noun}` : ''} vs ${VERSUS[period]}`
+}

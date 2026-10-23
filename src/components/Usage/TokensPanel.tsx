@@ -1,11 +1,8 @@
-import { USAGE_PROVIDERS, type UsagePeriod, type UsageState, type UsageSummary } from '@shared/usage/types'
-import { formatCompactTokens, formatExactTokens, formatUsd } from './format'
-import { ProviderDot } from './ProviderDot'
+import { type UsagePeriod, type UsageState, type UsageSummary } from '@shared/usage/types'
+import { formatChange, formatCompactTokens, formatExactTokens, formatUsd } from './format'
+import { ProviderLegend } from './ProviderLegend'
 import { UsageBars } from './UsageBars'
 import styles from './TokensPanel.module.css'
-
-const PROVIDER_NAMES = { claude: 'Claude', codex: 'Codex' } as const
-const VERSUS = { today: 'yesterday', week: 'last week', month: 'last month' } as const
 
 interface TokensPanelProps {
   period: UsagePeriod
@@ -30,13 +27,7 @@ export function TokensPanel({ period, summary, indexing }: TokensPanelProps) {
 }
 
 function Summary({ period, summary }: { period: UsagePeriod; summary: UsageSummary }) {
-  const change = summary.tokensChangePct
-  const changeText =
-    change === null
-      ? null
-      : Math.round(change) === 0
-        ? `no change vs ${VERSUS[period]}`
-        : `${change > 0 ? '▲' : '▼'} ${Math.abs(Math.round(change))}% tokens vs ${VERSUS[period]}`
+  const changeText = formatChange(summary.tokensChangePct, period, 'tokens')
   const share = (tokens: number): number => (summary.totalTokens > 0 ? (tokens / summary.totalTokens) * 100 : 0)
 
   return (
@@ -59,29 +50,7 @@ function Summary({ period, summary }: { period: UsagePeriod; summary: UsageSumma
           <span key={p.provider} className={styles.splitSeg} data-provider={p.provider} style={{ width: `${share(p.totalTokens)}%` }} />
         ))}
       </div>
-      <ul className={styles.providers}>
-        {USAGE_PROVIDERS.map((id) => {
-          const p = summary.byProvider.find((x) => x.provider === id)
-          const used = !!p && p.totalTokens > 0
-          return (
-            <li key={id} className={styles.provider}>
-              <ProviderDot provider={id} />
-              <span className={styles.providerName}>{PROVIDER_NAMES[id]}</span>
-              {used ? (
-                <>
-                  <span className={styles.providerTokens}>{formatCompactTokens(p.totalTokens)}</span>
-                  <span className={styles.providerCost}>
-                    {p.costPartial ? '≥' : ''}
-                    {formatUsd(p.costUsd)}
-                  </span>
-                </>
-              ) : (
-                <span className={styles.providerNone}>no usage</span>
-              )}
-            </li>
-          )
-        })}
-      </ul>
+      <ProviderLegend summary={summary} />
 
       <UsageBars period={period} slots={summary.slots} />
     </>

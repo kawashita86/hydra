@@ -1,7 +1,7 @@
 import { limitSeverity } from '@shared/usage/limits'
-import type { ClaudeProfileLimits, UsageState } from '@shared/usage/types'
+import type { UsageState } from '@shared/usage/types'
 import { formatAge, formatResets } from './format'
-import { buildLimitGroups, lowWindows, type LimitGroup, type TimedWindow } from './model'
+import { buildLimitGroups, lowWindows, profileProblem, type LimitGroup, type TimedWindow } from './model'
 import { ProviderDot } from './ProviderDot'
 import styles from './LimitRows.module.css'
 
@@ -100,22 +100,4 @@ function Row({ timed, now, dimmed }: { timed: TimedWindow; now: number; dimmed: 
       </div>
     </div>
   )
-}
-
-function profileProblem(p: ClaudeProfileLimits): { title: string; hint?: string } | null {
-  switch (p.status) {
-    case 'ok':
-      return null
-    case 'not-signed-in':
-      return { title: 'Not signed in.' }
-    case 'expired':
-      return { title: 'Sign-in expired', hint: 'Start a Claude agent in this profile to refresh the sign-in.' }
-    case 'keychain-denied':
-      return { title: 'Hydra could not read this sign-in from the Keychain.' }
-    case 'unavailable':
-      return { title: 'No plan limits for this sign-in. Token usage still shows below.' }
-    case 'rate-limited':
-    case 'error':
-      return p.windows.length === 0 ? { title: 'Limits unavailable — will retry shortly.' } : null
-  }
 }

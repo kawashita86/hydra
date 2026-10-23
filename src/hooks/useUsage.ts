@@ -30,26 +30,28 @@ export function useUsageState(): UsageState | null {
 }
 
 /**
- * The summary of one period for the popover. Fetches while `enabled`, when the period
+ * The summary of one period (optionally of one project directory) for the popover and the Overview card. Fetches while `enabled`, when the period
  * changes and when `dataVersion` changes; keeps showing the last summary of the same
  * period while a refetch runs.
  */
 export function useUsageSummary(
   period: UsagePeriod,
   enabled: boolean,
-  dataVersion: number | undefined
+  dataVersion: number | undefined,
+  projectKey?: string
 ): { summary: UsageSummary | null; loading: boolean } {
-  const [summary, setSummary] = useState<UsageSummary | null>(null)
+  const [result, setResult] = useState<{ key: string; summary: UsageSummary } | null>(null)
   const [loading, setLoading] = useState(false)
+  const key = `${period}|${projectKey ?? ''}`
 
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
     setLoading(true)
-    window.hydra
-      .getUsageSummary(period)
+    const request = projectKey ? window.hydra.getUsageSummary(period, projectKey) : window.hydra.getUsageSummary(period)
+    request
       .then((next) => {
-        if (!cancelled) setSummary(next)
+        if (!cancelled) setResult({ key, summary: next })
       })
       .catch(() => {})
       .finally(() => {
@@ -58,9 +60,28 @@ export function useUsageSummary(
     return () => {
       cancelled = true
     }
-  }, [period, enabled, dataVersion])
+  }, [period, projectKey, key, enabled, dataVersion])
 
-  return { summary: summary && summary.period === period ? summary : null, loading }
+  return { summary: result && result.key === key && result.summary.period === period ? result.summary : null, loading }
+}
+
+const KEEP_ALIVE_MS = 30_000
+
+/** While `active`, tells the service a usage surface is visible (now and every 30 s) so it refreshes the limits faster. */
+export function useUsageVisibility(active: boolean): void {
+  useEffect(() => {
+    if (!active) return
+    const ping = (): void => {
+      try {
+        void Promise.resolve(window.hydra.setUsageVisible()).catch(() => {})
+      } catch {
+        /* bridge unavailable */
+      }
+    }
+    ping()
+    const id = setInterval(ping, KEEP_ALIVE_MS)
+    return () => clearInterval(id)
+  }, [active])
 }
 
 /** Epoch ms that updates every `everyMs` (default one minute) while mounted. */

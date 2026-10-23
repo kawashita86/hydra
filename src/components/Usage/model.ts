@@ -106,3 +106,87 @@ export function newestFetch(state: UsageState): number {
     .filter((t): t is number => t !== null)
   return Math.max(state.updatedAt, ...times)
 }
+
+/** Why an account shows no (or only old) limits, `null` when it is fine. */
+export function profileProblem(p: ClaudeProfileLimits): { title: string; hint?: string } | null {
+  switch (p.status) {
+    case 'ok':
+      return null
+    case 'not-signed-in':
+      return { title: 'Not signed in.' }
+    case 'expired':
+      return { title: 'Sign-in expired', hint: 'Start a Claude agent in this profile to refresh the sign-in.' }
+    case 'keychain-denied':
+      return { title: 'Hydra could not read this sign-in from the Keychain.' }
+    case 'unavailable':
+      return { title: 'No plan limits for this sign-in. Token usage still shows below.' }
+    case 'rate-limited':
+    case 'error':
+      return p.windows.length === 0 ? { title: 'Limits unavailable — will retry shortly.' } : null
+  }
+}
+
+export interface LimitTile {
+  key: string
+  provider: UsageProvider
+  /** `Claude · session (5h)`, `Claude alternative · weekly`, `Codex · weekly`. */
+  label: string
+  /** Set for a plan window. */
+  timed: TimedWindow | null
+  /** Set for an account that has a problem instead of (or besides) windows. */
+  problem: { title: string; hint?: string } | null
+  dimmed: boolean
+  /** Codex values come from session logs, not from the provider. */
+  estimated: boolean
+  at: number | null
+}
+
+const KIND_LABELS: Record<string, string> = { session: 'session (5h)', weekly: 'weekly' }
+
+function windowName(w: LimitWindow): string {
+  const fixed = KIND_LABELS[w.kind]
+  if (fixed) return fixed
+  if (w.kind === 'weekly-model') return `weekly ${w.label.replace(/^Weekly\s*·\s*/i, '')}`.trim()
+  return w.label
+}
+
+/**
+ * Flat tiles for the Overview card: Claude accounts in order (session, weekly, ...), then
+ * Codex. The account is named only when more than one Claude account is shown.
+ */
+export function buildLimitTiles(state: UsageState): LimitTile[] {
+  const groups = buildLimitGroups(state)
+  const claudeCount = groups.filter((g) => g.provider === 'claude').length
+  const tiles: LimitTile[] = []
+  for (const g of groups) {
+    const source =
+      g.provider === 'codex' ? 'Codex' : g.profile && claudeCount > 1 ? `Claude ${g.profile.account}` : 'Claude'
+    const problem = g.profile ? profileProblem(g.profile) : null
+    const dimmed = g.profile !== null && g.profile.status !== 'ok'
+    if (problem) {
+      tiles.push({
+        key: `${g.key}:problem`,
+        provider: g.provider,
+        label: g.profile ? `Claude ${g.profile.account}` : source,
+        timed: null,
+        problem,
+        dimmed: false,
+        estimated: false,
+        at: null
+      })
+    }
+    for (const t of g.windows) {
+      tiles.push({
+        key: `${g.key}:${t.window.id}`,
+        provider: g.provider,
+        label: `${source} · ${windowName(t.window)}`,
+        timed: t,
+        problem: null,
+        dimmed,
+        estimated: g.provider === 'codex',
+        at: t.at
+      })
+    }
+  }
+  return tiles
+}

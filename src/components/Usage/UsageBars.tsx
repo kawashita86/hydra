@@ -20,7 +20,7 @@ function describe(period: UsagePeriod, slots: UsageSlot[]): string {
 }
 
 /** Stacked columns (Claude, Codex) per slot: hours today, days this week or month. */
-export function UsageBars({ period, slots }: { period: UsagePeriod; slots: UsageSlot[] }) {
+export function UsageBars({ period, slots, tall = false }: { period: UsagePeriod; slots: UsageSlot[]; tall?: boolean }) {
   const max = Math.max(0, ...slots.map(slotTotal))
   const peak = peakSlot(slots)
   const first = slots[0]?.label
@@ -28,7 +28,7 @@ export function UsageBars({ period, slots }: { period: UsagePeriod; slots: Usage
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.chart} data-period={period} role="img" aria-label={describe(period, slots)}>
+      <div className={styles.chart} data-period={period} data-tall={tall} role="img" aria-label={describe(period, slots)}>
         {slots.map((s) => {
           const total = slotTotal(s)
           return (

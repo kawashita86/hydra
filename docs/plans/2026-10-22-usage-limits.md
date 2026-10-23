@@ -17,7 +17,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 - [x] Step 5 — Claude plan limits (OAuth usage endpoint, per profile)
 - [x] Step 6 — `UsageService` in the daemon, REST + WS, IPC to the renderer
 - [x] Step 7 — Header chip + popover (mockup A)
-- [ ] Step 8 — Overview "Usage & limits" card (mockup B)
+- [x] Step 8 — Overview "Usage & limits" card (mockup B)
 - [ ] Step 9 — Low-limit alerts (opt-in) and Settings › Usage
 - [ ] Step 10 — Move the old Usage dashboard onto the new data, retire ccusage (optional)
 - [ ] Step 11 — Polish: states, docs, AGENTLOG

@@ -12,6 +12,10 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+.chart[data-tall='true'] {
+  height: 140px;
+}
+
 .chart[data-period='week'] {
   gap: 6px;
 }

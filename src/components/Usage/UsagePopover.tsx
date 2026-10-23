@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { UsagePeriod, UsageState } from '@shared/usage/types'
-import { useCoarseNow, usePersistedChoice, useUsageSummary } from '../../hooks/useUsage'
+import { useCoarseNow, usePersistedChoice, useUsageSummary, useUsageVisibility } from '../../hooks/useUsage'
 import { formatCompactTokens, formatUpdated } from './format'
 import { LimitRows, type LimitsFilter } from './LimitRows'
 import { newestFetch } from './model'
@@ -21,23 +21,6 @@ interface UsagePopoverProps {
 
 const FILTERS = ['low', 'all'] as const
 const PERIODS = ['today', 'week', 'month'] as const
-const KEEP_ALIVE_MS = 30_000
-
-/** Tells the service the popover is open, so it refreshes the limits more often. */
-function useVisibleHeartbeat(): void {
-  useEffect(() => {
-    const ping = (): void => {
-      try {
-        void Promise.resolve(window.hydra.setUsageVisible()).catch(() => {})
-      } catch {
-        /* bridge unavailable */
-      }
-    }
-    ping()
-    const id = setInterval(ping, KEEP_ALIVE_MS)
-    return () => clearInterval(id)
-  }, [])
-}
 
 export function UsagePopover({ state, anchorRef, onClose, onOpenReport }: UsagePopoverProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -47,7 +30,7 @@ export function UsagePopover({ state, anchorRef, onClose, onOpenReport }: UsageP
   const { summary } = useUsageSummary(period, true, state?.dataVersion)
   const [refreshing, setRefreshing] = useState(false)
 
-  useVisibleHeartbeat()
+  useUsageVisibility(true)
 
   useEffect(() => {
     ref.current?.focus()

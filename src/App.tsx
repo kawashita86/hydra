@@ -830,6 +830,8 @@ export default function App() {
           ) : renderedViewMode === 'overview' ? (
             <OverviewView
               overview={overview}
+              usage={usage}
+              onOpenUsageReport={() => setShowUsageDashboard(true)}
               onJumpToAgent={handleJumpToAgent}
               onOpenNewAgent={() => {
                 void handleOpenNewAgent()
