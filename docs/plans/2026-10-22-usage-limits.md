@@ -11,7 +11,7 @@ Tick a step when it is merged into the feature branch, with tests passing (`npm 
 
 - [x] Step 0 — Branch, plan, spike on the live limit endpoints
 - [x] Step 1 — Usage model (pure, shared)
-- [ ] Step 2 — Claude transcript scanner
+- [x] Step 2 — Claude transcript scanner
 - [ ] Step 3 — Codex rollout scanner (tokens + passive limits)
 - [ ] Step 4 — `UsageStore`: hourly buckets, file-offset cache, persisted
 - [ ] Step 5 — Claude plan limits (OAuth usage endpoint, per profile)
