@@ -17,6 +17,13 @@ import { useRuntimeProviderModels } from '../../hooks/useRuntimeProviderModels'
 import { useClaudeProfiles } from '../../hooks/useClaudeProfiles'
 import { withClaudeProfile } from '@shared/claudeProfiles'
 import { ClaudeProfileOptions } from '../shared/ClaudeProfileOptions'
+import {
+  DEFAULT_USAGE_SETTINGS,
+  MAX_ALERT_PERCENT,
+  MIN_ALERT_PERCENT,
+  type UsageChipProvider,
+  type UsageSettings
+} from '@shared/usage/settings'
 import { fuzzyScoreAny } from '../../lib/fuzzy'
 import { ShortcutsTab } from './ShortcutsTab'
 import { SkillsTab } from './SkillsTab'
@@ -35,6 +42,7 @@ type SectionId =
   | 'remote'
   | 'terminal'
   | 'observability'
+  | 'usage'
   | 'shortcuts'
   | 'skills'
 
@@ -46,6 +54,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; keywords: string[] }> = [
   { id: 'remote', label: 'Remote Control', keywords: ['remote', 'control', 'timeout'] },
   { id: 'terminal', label: 'Terminal', keywords: ['terminal', 'shell', 'bash', 'zsh', 'pwsh', 'powershell', 'font', 'cursor', 'webgl', 'path', 'scrollback', 'background', 'lru', 'idle', 'lifecycle', 'cmd+j'] },
   { id: 'observability', label: 'Observability', keywords: ['observability', 'error', 'reporting', 'diagnostics', 'sensitive', 'endpoint'] },
+  { id: 'usage', label: 'Usage', keywords: ['usage', 'limit', 'limits', 'quota', 'plan', 'alert', 'notify', 'notification', 'cost', 'chip', 'session', 'weekly', 'tokens'] },
   { id: 'shortcuts', label: 'Shortcuts', keywords: ['shortcut', 'keybinding', 'hotkey', 'keys'] },
   { id: 'skills', label: 'Skills', keywords: ['skill', 'prompt'] }
 ]
@@ -82,6 +91,12 @@ interface SettingsPanelProps {
   onToggleGlobalYolo: () => void
 }
 
+function parseAlertPercent(raw: string, fallback: number): number {
+  const n = parseInt(raw, 10)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(MAX_ALERT_PERCENT, Math.max(MIN_ALERT_PERCENT, n))
+}
+
 function matchesSearch(query: string, ...keywords: string[]): boolean {
   if (!query) return true
   return fuzzyScoreAny(query, ...keywords) >= 0
@@ -105,6 +120,9 @@ export function SettingsPanel({
   const profileByProject = config.claudeProfileByProject ?? {}
   const setProjectProfile = (projectDir: string, configDir: string | null) =>
     onUpdate({ claudeProfileByProject: withClaudeProfile(profileByProject, projectDir, configDir) })
+
+  const usage = config.usage ?? DEFAULT_USAGE_SETTINGS
+  const updateUsage = (partial: Partial<UsageSettings>) => onUpdate({ usage: { ...usage, ...partial } })
 
   useEffect(() => {
     window.hydra.getConfigPath().then(setConfigPath).catch(() => { /* ignore */ })
@@ -821,6 +839,82 @@ export function SettingsPanel({
               {exportState && <span className={styles.inlineHint}>{exportState}</span>}
             </div>
           </div>}
+
+          {isVisible('usage') && (
+            <div className={styles.section}>
+              <h3 className={styles.sectionTitle}>Usage</h3>
+
+              <div className={styles.field}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={usage.alertsEnabled}
+                    onChange={(e) => updateUsage({ alertsEnabled: e.target.checked })}
+                    className={styles.checkbox}
+                  />
+                  <span>Notify me when a plan limit is nearly used</span>
+                </label>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="usage-session-alert">Session alert at (% used)</label>
+                <input
+                  id="usage-session-alert"
+                  className={styles.numberInput}
+                  type="number"
+                  min={MIN_ALERT_PERCENT}
+                  max={MAX_ALERT_PERCENT}
+                  disabled={!usage.alertsEnabled}
+                  value={usage.sessionAlertPercent}
+                  onChange={(e) => updateUsage({ sessionAlertPercent: parseAlertPercent(e.target.value, usage.sessionAlertPercent) })}
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="usage-weekly-alert">Weekly alert at (% used)</label>
+                <input
+                  id="usage-weekly-alert"
+                  className={styles.numberInput}
+                  type="number"
+                  min={MIN_ALERT_PERCENT}
+                  max={MAX_ALERT_PERCENT}
+                  disabled={!usage.alertsEnabled}
+                  value={usage.weeklyAlertPercent}
+                  onChange={(e) => updateUsage({ weeklyAlertPercent: parseAlertPercent(e.target.value, usage.weeklyAlertPercent) })}
+                />
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="usage-chip-provider">Header chip shows</label>
+                <select
+                  id="usage-chip-provider"
+                  className={styles.select}
+                  value={usage.chipProvider}
+                  onChange={(e) => updateUsage({ chipProvider: e.target.value as UsageChipProvider })}
+                >
+                  <option value="auto">Automatic (most used)</option>
+                  <option value="claude">Claude</option>
+                  <option value="codex">Codex</option>
+                </select>
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={usage.showCost}
+                    onChange={(e) => updateUsage({ showCost: e.target.checked })}
+                    className={styles.checkbox}
+                  />
+                  <span>Show estimated API-equivalent cost</span>
+                </label>
+                <p className={styles.hint}>
+                  Plan limits come from your Claude sign-in and Codex session logs. Costs are estimates at API prices;
+                  subscriptions are billed flat.
+                </p>
+              </div>
+            </div>
+          )}
 
           {isVisible('shortcuts') && (
             <div className={styles.section}>

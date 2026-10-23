@@ -97,6 +97,10 @@ vi.mock('./hooks/useOverview', () => ({
   needsYouCount: () => 0
 }))
 
+vi.mock('./hooks/useUsage', () => ({
+  useUsageState: () => null
+}))
+
 vi.mock('./components/Overview/OverviewView', () => ({
   OverviewView: (props: { onJumpToAgent: (agentId: string) => void }) => (
     <div>
@@ -177,7 +181,8 @@ const baseConfig: AppConfig = {
   freeTerminalScrollbackLines: 5000,
   gitPanelDisplayMode: 'overlay',
   editorPanelDisplayMode: 'overlay',
-  claudeProfileByProject: {}
+  claudeProfileByProject: {},
+  usage: { alertsEnabled: false, sessionAlertPercent: 80, weeklyAlertPercent: 90, chipProvider: 'auto', showCost: true }
 }
 
 let currentConfig: AppConfig = { ...baseConfig }

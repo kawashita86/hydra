@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { CcusageDailyEntry, CcusageSnapshot, ProviderId } from '@shared/types'
-import { PROVIDER_LABELS } from '@shared/types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { UsageReport, UsageReportDay, UsageReportProvider } from '@shared/usage/report'
+import { formatCompactTokens, formatUsd } from '../Usage/format'
+import { useUsageSettings } from '../Usage/UsageSettingsContext'
 import styles from './UsageDashboard.module.css'
 
 interface UsageDashboardProps {
@@ -9,150 +10,81 @@ interface UsageDashboardProps {
 
 const DAY_LIMIT = 30
 const TREND_WINDOWS = [7, 30] as const
-const USAGE_PROVIDERS: ProviderId[] = ['claude', 'codex', 'opencode']
 type TrendWindow = (typeof TREND_WINDOWS)[number]
+const PROVIDER_OPTIONS: Array<{ id: UsageReportProvider; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'claude', label: 'Claude' },
+  { id: 'codex', label: 'Codex' }
+]
 
 interface TrendPoint {
   date: string
   label: string
-  cost: number
-  tokens: number
+  value: number
+  partial: boolean
 }
 
 export function UsageDashboard({ onClose }: UsageDashboardProps) {
-  const [snapshot, setSnapshot] = useState<CcusageSnapshot | null>(null)
+  const { showCost } = useUsageSettings()
+  const [report, setReport] = useState<UsageReport | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [trendWindow, setTrendWindow] = useState<TrendWindow>(7)
-  const [selectedProvider, setSelectedProvider] = useState<ProviderId>('claude')
+  const [selectedProvider, setSelectedProvider] = useState<UsageReportProvider>('all')
 
-  const refresh = useCallback(async () => {
+  const requestId = useRef(0)
+
+  const load = useCallback(async (opts?: { rescan?: boolean }) => {
+    const id = ++requestId.current
     setIsLoading(true)
     try {
-      const next = await window.hydra.getUsageDashboard({ days: DAY_LIMIT, provider: selectedProvider })
-      const normalized = normalizeSnapshot(next)
-      setSnapshot(normalized)
+      if (opts?.rescan) await window.hydra.refreshUsage().catch(() => undefined)
+      const next = await window.hydra.getUsageReport(DAY_LIMIT, selectedProvider)
+      if (id !== requestId.current) return
+      setReport(next)
       setSelectedDate((prev) => {
-        if (prev && normalized.daily.some((d) => d.date === prev)) return prev
-        return normalized.daily[normalized.daily.length - 1]?.date ?? null
+        if (prev && next.daily.some((d) => d.date === prev)) return prev
+        return next.daily[next.daily.length - 1]?.date ?? null
       })
+    } catch {
+      if (id === requestId.current) setReport(null)
     } finally {
-      setIsLoading(false)
+      if (id === requestId.current) setIsLoading(false)
     }
   }, [selectedProvider])
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
+    void load()
+  }, [load])
 
-  const selectedDay = useMemo<CcusageDailyEntry | null>(() => {
-    if (!snapshot) return null
-    if (selectedDate) return snapshot.daily.find((d) => d.date === selectedDate) ?? null
-    return snapshot.daily[snapshot.daily.length - 1] ?? null
-  }, [snapshot, selectedDate])
+  const daily = useMemo(() => report?.daily ?? [], [report])
+  const hasData = daily.some((d) => d.totalTokens > 0 || d.messages > 0)
 
-  const trendSeries = useMemo<TrendPoint[]>(() => {
-    return buildTrendSeries(snapshot?.daily ?? [], trendWindow)
-  }, [snapshot, trendWindow])
+  const selectedDay = useMemo<UsageReportDay | null>(() => {
+    if (selectedDate) return daily.find((d) => d.date === selectedDate) ?? null
+    return daily[daily.length - 1] ?? null
+  }, [daily, selectedDate])
 
-  const trendTotalCost = useMemo(
-    () => trendSeries.reduce((sum, p) => sum + p.cost, 0),
-    [trendSeries]
+  const trendSeries = useMemo<TrendPoint[]>(
+    () =>
+      daily.slice(-trendWindow).map((d) => ({
+        date: d.date,
+        label: formatDayShort(d.date),
+        value: showCost ? d.costUsd : d.totalTokens,
+        partial: d.costPartial
+      })),
+    [daily, trendWindow, showCost]
   )
-  const trendActiveDays = useMemo(
-    () => trendSeries.filter((p) => p.cost > 0).length,
-    [trendSeries]
-  )
-  const trendAvgPerDay = trendTotalCost / trendWindow
+  const trendTotal = trendSeries.reduce((sum, p) => sum + p.value, 0)
+  const trendActiveDays = trendSeries.filter((p) => p.value > 0).length
+  const trendAvgPerDay = trendTotal / trendWindow
   const trendProjected30 = trendAvgPerDay * 30
+  const trendPartial = showCost && trendSeries.some((p) => p.partial)
 
-  // Derive project display names from keys
-  const projectEntries = useMemo(() => {
-    if (!snapshot || !selectedDate) return []
-    return Object.entries(snapshot.projects)
-      .map(([key, entries]) => {
-        const dayEntry = entries.find((e) => e.date === selectedDate)
-        if (!dayEntry || dayEntry.totalCost === 0) return null
-        const name = prettifyProjectKey(key)
-        return { key, name, ...dayEntry }
-      })
-      .filter(Boolean)
-      .sort((a, b) => b!.totalCost - a!.totalCost) as Array<
-      CcusageDailyEntry & { key: string; name: string }
-    >
-  }, [snapshot, selectedDate])
-
-  const providerName = PROVIDER_LABELS[selectedProvider]
-  const subtitle = 'Token usage and costs from local agent logs via ccusage'
-  const providerInstallTitle = `${providerName} usage support is not installed`
-  const providerInstallDescription = `Hydra uses ccusage to analyze your local ${providerName} usage logs.`
-  const providerEmptyDescription = `No usage data found. Start using ${providerName} to generate usage logs.`
-
-  // Not installed state
-  if (!isLoading && snapshot && !snapshot.available) {
-    return (
-      <div className={styles.overlay} onClick={onClose}>
-        <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
-          <div className={styles.header}>
-            <div>
-              <h2>Usage Dashboard</h2>
-              <p className={styles.subtitle}>{subtitle}</p>
-            </div>
-            <button className={styles.closeBtn} type="button" onClick={onClose}>
-              &#x2715;
-            </button>
-          </div>
-          <div className={styles.controls}>
-            <div className={styles.controlGroup}>
-              <label className={styles.label}>Provider</label>
-              <div className={styles.segmented}>
-                {USAGE_PROVIDERS.map((provider) => (
-                  <button
-                    key={provider}
-                    className={`${styles.segmentBtn} ${selectedProvider === provider ? styles.segmentBtnActive : ''}`}
-                    type="button"
-                    onClick={() => setSelectedProvider(provider)}
-                  >
-                    {PROVIDER_LABELS[provider]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className={styles.notInstalled}>
-            <div className={styles.notInstalledIcon}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-            </div>
-            <h3>{providerInstallTitle}</h3>
-            <p>
-              {providerInstallDescription}
-              {' '}No API keys required.
-            </p>
-            <div className={styles.installBlock}>
-              {(snapshot.installHint?.split('\n').slice(1).map((line) => line.trim()).filter(Boolean) ?? ['npm install -g ccusage']).map((command) => (
-                <code key={command}>{command}</code>
-              ))}
-            </div>
-            <p className={styles.installNote}>
-              After installing, refresh or reopen this dashboard to see your usage data.
-            </p>
-            <a
-              className={styles.learnMore}
-              href="https://github.com/ryoppippi/ccusage"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learn more about ccusage
-            </a>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const projectEntries = selectedDay?.projects.filter((p) => p.totalTokens > 0) ?? []
+  const subtitle = 'Token usage from local Claude Code and Codex logs. Costs are API-equivalent estimates.'
+  const cacheWrite = selectedDay ? selectedDay.tokens.cacheWrite5m + selectedDay.tokens.cacheWrite1h : 0
+  const trendNoun = showCost ? 'Cost' : 'Token'
 
   return (
     <div className={styles.overlay} onClick={onClose}>
@@ -167,66 +99,76 @@ export function UsageDashboard({ onClose }: UsageDashboardProps) {
           </button>
         </div>
 
+        <div className={styles.controls}>
+          <div className={styles.controlGroup}>
+            <label className={styles.label}>Provider</label>
+            <div className={styles.segmented}>
+              {PROVIDER_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  className={`${styles.segmentBtn} ${selectedProvider === option.id ? styles.segmentBtnActive : ''}`}
+                  type="button"
+                  aria-pressed={selectedProvider === option.id}
+                  onClick={() => setSelectedProvider(option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {hasData && (
+            <div className={styles.controlGroup}>
+              <label className={styles.label} htmlFor="usage-day">Day</label>
+              <select
+                id="usage-day"
+                className={styles.select}
+                value={selectedDate ?? ''}
+                onChange={(e) => setSelectedDate(e.target.value || null)}
+              >
+                {daily.map((day) => (
+                  <option key={day.date} value={day.date}>
+                    {formatDay(day.date)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className={styles.actionRow}>
+            <button className={styles.refreshBtn} type="button" disabled={isLoading} onClick={() => void load({ rescan: true })}>
+              Refresh
+            </button>
+          </div>
+        </div>
+
         <div className={styles.content}>
           {isLoading ? (
             <div className={styles.loading}>
               <div className={styles.spinner} />
               <span>Loading usage data...</span>
             </div>
-          ) : selectedDay ? (
+          ) : selectedDay && hasData ? (
             <>
-            <div className={styles.controls}>
-              <div className={styles.controlGroup}>
-                <label className={styles.label}>Provider</label>
-                <div className={styles.segmented}>
-                  {USAGE_PROVIDERS.map((provider) => (
-                    <button
-                      key={provider}
-                      className={`${styles.segmentBtn} ${selectedProvider === provider ? styles.segmentBtnActive : ''}`}
-                      type="button"
-                      onClick={() => setSelectedProvider(provider)}
-                    >
-                      {PROVIDER_LABELS[provider]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className={styles.controlGroup}>
-                <label className={styles.label}>Day</label>
-                <select
-                  className={styles.select}
-                  value={selectedDate ?? ''}
-                  onChange={(e) => setSelectedDate(e.target.value || null)}
-                >
-                  {snapshot?.daily.map((day) => (
-                    <option key={day.date} value={day.date}>
-                      {formatDay(day.date)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.actionRow}>
-                <button className={styles.refreshBtn} type="button" onClick={() => void refresh()}>
-                  Refresh
-                </button>
-              </div>
-            </div>
               <div className={styles.summaryGrid}>
-                <SummaryCard label="Total Cost" value={formatUsd(selectedDay.totalCost)} />
-                <SummaryCard label="Total Tokens" value={formatTokens(selectedDay.totalTokens)} />
-                <SummaryCard label="Input" value={formatTokens(selectedDay.inputTokens)} />
-                <SummaryCard label="Output" value={formatTokens(selectedDay.outputTokens)} />
-                <SummaryCard label="Cache Created" value={formatTokens(selectedDay.cacheCreationTokens)} />
-                <SummaryCard label="Cache Read" value={formatTokens(selectedDay.cacheReadTokens)} />
+                {showCost && (
+                  <SummaryCard
+                    label="Cost"
+                    value={`${selectedDay.costPartial ? '≥' : ''}${formatUsd(selectedDay.costUsd)}`}
+                  />
+                )}
+                <SummaryCard label="Total Tokens" value={formatCompactTokens(selectedDay.totalTokens)} />
+                <SummaryCard label="Input" value={formatCompactTokens(selectedDay.tokens.input)} />
+                <SummaryCard label="Output" value={formatCompactTokens(selectedDay.tokens.output)} />
+                <SummaryCard label="Cache Write" value={formatCompactTokens(cacheWrite)} />
+                <SummaryCard label="Cache Read" value={formatCompactTokens(selectedDay.tokens.cacheRead)} />
               </div>
 
               <section className={styles.trendSection}>
                 <div className={styles.trendHeader}>
                   <div>
-                    <h3>Cost Trend</h3>
-                    <p>Daily cost over the last {trendWindow} days</p>
+                    <h3>{trendNoun} Trend</h3>
+                    <p>Daily {trendNoun.toLowerCase()} over the last {trendWindow} days</p>
                   </div>
 
                   <div className={styles.trendControls}>
@@ -247,11 +189,14 @@ export function UsageDashboard({ onClose }: UsageDashboardProps) {
 
                 <TrendChart
                   series={trendSeries}
-                  total={trendTotalCost}
+                  total={trendTotal}
                   avgPerDay={trendAvgPerDay}
                   projected30={trendProjected30}
                   activeDays={trendActiveDays}
                   windowDays={trendWindow}
+                  format={showCost ? formatUsd : formatCompactTokens}
+                  unitLabel={showCost ? 'cost' : 'token'}
+                  partial={trendPartial}
                 />
               </section>
 
@@ -259,7 +204,7 @@ export function UsageDashboard({ onClose }: UsageDashboardProps) {
                 <section className={styles.tableSection}>
                   <div className={styles.tableHeader}>
                     <h3>Model Breakdown</h3>
-                    <span>{selectedDay.modelBreakdowns.length} models</span>
+                    <span>{selectedDay.models.length} models</span>
                   </div>
                   <div className={styles.tableWrap}>
                     <table className={styles.table}>
@@ -270,18 +215,18 @@ export function UsageDashboard({ onClose }: UsageDashboardProps) {
                           <th>Output</th>
                           <th>Cache Write</th>
                           <th>Cache Read</th>
-                          <th>Cost</th>
+                          {showCost && <th>Cost</th>}
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedDay.modelBreakdowns.map((model) => (
-                          <tr key={model.modelName}>
-                            <td>{prettifyModelName(model.modelName)}</td>
-                            <td>{formatTokens(model.inputTokens)}</td>
-                            <td>{formatTokens(model.outputTokens)}</td>
-                            <td>{formatTokens(model.cacheCreationTokens)}</td>
-                            <td>{formatTokens(model.cacheReadTokens)}</td>
-                            <td>{formatUsd(model.cost)}</td>
+                        {selectedDay.models.map((model) => (
+                          <tr key={model.model}>
+                            <td>{prettifyModelName(model.model)}</td>
+                            <td>{formatCompactTokens(model.tokens.input)}</td>
+                            <td>{formatCompactTokens(model.tokens.output)}</td>
+                            <td>{formatCompactTokens(model.tokens.cacheWrite5m + model.tokens.cacheWrite1h)}</td>
+                            <td>{formatCompactTokens(model.tokens.cacheRead)}</td>
+                            {showCost && <td>{formatUsd(model.costUsd)}</td>}
                           </tr>
                         ))}
                       </tbody>
@@ -301,15 +246,15 @@ export function UsageDashboard({ onClose }: UsageDashboardProps) {
                           <tr>
                             <th>Project</th>
                             <th>Tokens</th>
-                            <th>Cost</th>
+                            {showCost && <th>Cost</th>}
                           </tr>
                         </thead>
                         <tbody>
                           {projectEntries.map((project) => (
-                            <tr key={project.key}>
-                              <td>{project.name}</td>
-                              <td>{formatTokens(project.totalTokens)}</td>
-                              <td>{formatUsd(project.totalCost)}</td>
+                            <tr key={project.projectKey}>
+                              <td title={project.projectKey || undefined}>{project.label}</td>
+                              <td>{formatCompactTokens(project.totalTokens)}</td>
+                              {showCost && <td>{formatUsd(project.costUsd)}</td>}
                             </tr>
                           ))}
                         </tbody>
@@ -320,57 +265,12 @@ export function UsageDashboard({ onClose }: UsageDashboardProps) {
               </div>
             </>
           ) : (
-            <div className={styles.empty}>
-              {providerEmptyDescription}
-            </div>
+            <div className={styles.empty}>No usage recorded in the last {DAY_LIMIT} days.</div>
           )}
         </div>
       </div>
     </div>
   )
-}
-
-function normalizeSnapshot(snapshot: CcusageSnapshot): CcusageSnapshot {
-  return {
-    ...snapshot,
-    daily: Array.isArray(snapshot.daily) ? snapshot.daily.map(normalizeDailyEntry) : [],
-    projects: Object.fromEntries(
-      Object.entries(snapshot.projects ?? {}).map(([key, entries]) => [
-        key,
-        Array.isArray(entries) ? entries.map(normalizeDailyEntry) : []
-      ])
-    )
-  }
-}
-
-function normalizeDailyEntry(entry: Partial<CcusageDailyEntry>): CcusageDailyEntry {
-  const modelBreakdowns = Array.isArray(entry.modelBreakdowns)
-    ? entry.modelBreakdowns.map((model) => {
-        const looseModel = model as unknown as Record<string, unknown>
-        return {
-          modelName: typeof model.modelName === 'string' ? model.modelName : 'Unknown',
-          inputTokens: typeof model.inputTokens === 'number' ? model.inputTokens : 0,
-          outputTokens: typeof model.outputTokens === 'number' ? model.outputTokens : 0,
-          cacheCreationTokens: typeof model.cacheCreationTokens === 'number' ? model.cacheCreationTokens : 0,
-          cacheReadTokens: typeof model.cacheReadTokens === 'number' ? model.cacheReadTokens : 0,
-          cost: readNumber(model.cost, looseModel.totalCost, looseModel.costUSD)
-        }
-      })
-    : []
-
-  return {
-    date: normalizeDateKey(entry.date),
-    inputTokens: typeof entry.inputTokens === 'number' ? entry.inputTokens : 0,
-    outputTokens: typeof entry.outputTokens === 'number' ? entry.outputTokens : 0,
-    cacheCreationTokens: typeof entry.cacheCreationTokens === 'number' ? entry.cacheCreationTokens : 0,
-    cacheReadTokens: typeof entry.cacheReadTokens === 'number' ? entry.cacheReadTokens : 0,
-    totalTokens: typeof entry.totalTokens === 'number' ? entry.totalTokens : 0,
-    totalCost: readNumber(entry.totalCost, (entry as Record<string, unknown>).cost, (entry as Record<string, unknown>).costUSD),
-    modelsUsed: Array.isArray(entry.modelsUsed)
-      ? entry.modelsUsed.filter((model): model is string => typeof model === 'string')
-      : modelBreakdowns.map((model) => model.modelName),
-    modelBreakdowns
-  }
 }
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
@@ -388,7 +288,10 @@ function TrendChart({
   avgPerDay,
   projected30,
   activeDays,
-  windowDays
+  windowDays,
+  format,
+  unitLabel,
+  partial
 }: {
   series: TrendPoint[]
   total: number
@@ -396,7 +299,11 @@ function TrendChart({
   projected30: number
   activeDays: number
   windowDays: TrendWindow
+  format: (n: number) => string
+  unitLabel: string
+  partial: boolean
 }) {
+  const lower = partial ? '≥' : ''
   const width = 920
   const height = 220
   const paddingX = 20
@@ -405,12 +312,12 @@ function TrendChart({
   const plotWidth = width - paddingX * 2
   const plotHeight = height - paddingTop - paddingBottom
   const baselineY = paddingTop + plotHeight
-  const maxValue = Math.max(...series.map((p) => p.cost), 0)
+  const maxValue = Math.max(...series.map((p) => p.value), 0)
   const safeMax = maxValue > 0 ? maxValue : 1
   const tickStep = series.length > 14 ? 4 : series.length > 8 ? 2 : 1
 
   const points = series.map((point, index) => {
-    const ratio = point.cost / safeMax
+    const ratio = point.value / safeMax
     const x = paddingX + (series.length <= 1 ? 0 : (index * plotWidth) / (series.length - 1))
     const y = baselineY - ratio * plotHeight
     return { x, y, ...point }
@@ -430,7 +337,7 @@ function TrendChart({
           className={styles.chartSvg}
           viewBox={`0 0 ${width} ${height}`}
           role="img"
-          aria-label="Usage cost trend chart"
+          aria-label={`Usage ${unitLabel} trend chart`}
         >
           {[0.25, 0.5, 0.75, 1].map((ratio) => {
             const y = baselineY - plotHeight * ratio
@@ -479,15 +386,15 @@ function TrendChart({
       <div className={styles.trendStats}>
         <div className={styles.trendStatCard}>
           <span>Total ({windowDays}d)</span>
-          <strong>{formatUsd(total)}</strong>
+          <strong>{lower}{format(total)}</strong>
         </div>
         <div className={styles.trendStatCard}>
           <span>Avg / day</span>
-          <strong>{formatUsd(avgPerDay)}</strong>
+          <strong>{lower}{format(avgPerDay)}</strong>
         </div>
         <div className={styles.trendStatCard}>
           <span>Projected 30d</span>
-          <strong>{formatUsd(projected30)}</strong>
+          <strong>{lower}{format(projected30)}</strong>
         </div>
         <div className={styles.trendStatCard}>
           <span>Active days</span>
@@ -500,39 +407,6 @@ function TrendChart({
   )
 }
 
-const tokenFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 })
-const compactTokenFormatter = new Intl.NumberFormat(undefined, {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 1
-})
-
-function formatTokens(value: number): string {
-  const rounded = Math.round(value)
-  const absolute = Math.abs(rounded)
-
-  if (absolute >= 1_000_000_000) {
-    return `${formatCompactTokenNumber(rounded / 1_000_000_000)}B`
-  }
-  if (absolute >= 1_000_000) {
-    return `${formatCompactTokenNumber(rounded / 1_000_000)}M`
-  }
-  if (absolute >= 1_000) {
-    return `${formatCompactTokenNumber(rounded / 1_000)}K`
-  }
-
-  return tokenFormatter.format(rounded)
-}
-
-function formatCompactTokenNumber(value: number): string {
-  const precision = Math.abs(value) >= 100 ? 0 : 1
-  const rounded = Number(value.toFixed(precision))
-  return compactTokenFormatter.format(rounded)
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(2)}`
-}
-
 function formatDay(date: string): string {
   const parsed = parseUsageDate(date)
   if (!parsed) return date
@@ -541,42 +415,6 @@ function formatDay(date: string): string {
     month: 'short',
     day: 'numeric'
   })
-}
-
-function buildTrendSeries(
-  daily: CcusageDailyEntry[],
-  windowDays: TrendWindow
-): TrendPoint[] {
-  const byDate = new Map(daily.map((d) => [d.date, d]))
-  const result: TrendPoint[] = []
-  const endDate = new Date()
-
-  for (let i = windowDays - 1; i >= 0; i -= 1) {
-    const date = addDays(endDate, -i)
-    const key = toDateKey(date)
-    const entry = byDate.get(key)
-    result.push({
-      date: key,
-      label: formatDayShort(key),
-      cost: entry?.totalCost ?? 0,
-      tokens: entry?.totalTokens ?? 0
-    })
-  }
-
-  return result
-}
-
-function addDays(date: Date, deltaDays: number): Date {
-  const next = new Date(date)
-  next.setDate(next.getDate() + deltaDays)
-  return next
-}
-
-function toDateKey(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 function formatDayShort(dateKey: string): string {
@@ -589,44 +427,15 @@ function formatDayShort(dateKey: string): string {
 }
 
 function parseUsageDate(value: string): Date | null {
-  if (!value) return null
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const isoDate = new Date(`${value}T00:00:00`)
-    return Number.isNaN(isoDate.getTime()) ? null : isoDate
-  }
-
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed
-}
-
-function normalizeDateKey(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-
-  const parsed = parseUsageDate(value)
-  return parsed ? toDateKey(parsed) : value
-}
-
-function readNumber(...values: unknown[]): number {
-  for (const value of values) {
-    if (typeof value === 'number' && Number.isFinite(value)) return value
-  }
-  return 0
-}
-
-function prettifyProjectKey(key: string): string {
-  // ccusage keys look like "-Users-jp-Documents-Personal-GitHub-Projects-hydra"
-  const parts = key.split('-').filter(Boolean)
-  // Return last 2 segments for brevity
-  return parts.slice(-2).join('/') || key
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const date = new Date(`${value}T00:00:00`)
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
 function prettifyModelName(name: string): string {
-  // e.g. "claude-opus-4-6" → "Opus 4.6", "claude-haiku-4-5-20251001" → "Haiku 4.5"
+  // e.g. "claude-opus-4-6" -> "Opus 4.6", "claude-haiku-4-5-20251001" -> "Haiku 4.5"
   if (name.startsWith('claude-')) {
-    const rest = name.slice(7) // remove "claude-"
-    // Extract family and version
-    const match = rest.match(/^(opus|sonnet|haiku)-(\d+)-(\d+)/)
+    const match = name.slice(7).match(/^(opus|sonnet|haiku)-(\d+)-(\d+)/)
     if (match) {
       const family = match[1].charAt(0).toUpperCase() + match[1].slice(1)
       return `${family} ${match[2]}.${match[3]}`

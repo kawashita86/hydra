@@ -4,6 +4,9 @@ import { unlinkSync, existsSync } from 'fs'
 import { homedir } from 'os'
 import { spawn as ptySpawn, type IPty } from 'node-pty'
 import { AgentManager } from '../agents/AgentManager'
+import { buildUsageReport, REPORT_MAX_DAYS, REPORT_MIN_DAYS, type UsageReport, type UsageReportProvider } from '@shared/usage/report'
+import { summarize } from '@shared/usage/summary'
+import type { UsagePeriod, UsageState, UsageSummary } from '@shared/usage/types'
 import type { OverviewTracker } from '../overview/OverviewTracker'
 import type { HistoryResponse, OverviewEvent, OverviewSnapshot, WaitsResponse } from '@shared/overview/types'
 import { MAX_CONCURRENT_AGENTS_HARD_LIMIT } from '@shared/types'
@@ -28,6 +31,30 @@ import type {
   FreeTerminalLayout,
   FreeTerminalGroup
 } from '@shared/types'
+
+/** What `/usage/*` needs from the usage service. */
+export interface UsageServiceLike {
+  state(): UsageState
+  summary(period: UsagePeriod, projectKey?: string): UsageSummary
+  report(days: number, provider: UsageReportProvider): UsageReport
+  refresh(): Promise<UsageState>
+  setVisible(): void
+  on(event: 'changed', listener: (state: UsageState) => void): unknown
+}
+
+function emptyUsageState(): UsageState {
+  return {
+    claude: [],
+    codex: null,
+    indexing: { indexing: false, progress: null, lastScanAt: null },
+    dataVersion: 0,
+    updatedAt: Date.now()
+  }
+}
+
+function emptyUsageSummary(period: UsagePeriod): UsageSummary {
+  return summarize([], period, new Date())
+}
 
 /** Return the appropriate shell and args for the current platform. */
 function emptyHistory(): HistoryResponse {
@@ -82,6 +109,10 @@ interface DaemonServerOptions {
   overviewTracker: OverviewTracker
   /** Answers `GET /overview/history`; without it the route answers an empty history. */
   overviewHistory?: { query(sinceMs: number): HistoryResponse; waits(): WaitsResponse['ledger'] }
+  /** Answers `/usage/*`; without it the routes answer empty data. */
+  usageService?: UsageServiceLike
+  /** Called after `PATCH /config` saved (e.g. the usage alerts were just turned on). */
+  onConfigChanged?: (config: AppConfig) => void
   onShutdown: () => void
 }
 
@@ -101,6 +132,8 @@ export class DaemonServer {
   private readonly skillScanner: SkillScanner
   private readonly overviewTracker: OverviewTracker
   private readonly overviewHistory: DaemonServerOptions['overviewHistory']
+  private readonly usageService: UsageServiceLike | undefined
+  private readonly onConfigChanged: ((config: AppConfig) => void) | undefined
   private readonly onShutdown: () => void
   private readonly startedAt = Date.now()
   private testPty: IPty | null = null
@@ -123,6 +156,8 @@ export class DaemonServer {
     this.skillScanner = options.skillScanner
     this.overviewTracker = options.overviewTracker
     this.overviewHistory = options.overviewHistory
+    this.usageService = options.usageService
+    this.onConfigChanged = options.onConfigChanged
     this.onShutdown = options.onShutdown
   }
 
@@ -163,6 +198,10 @@ export class DaemonServer {
 
     this.overviewTracker.on('events', (events: OverviewEvent[]) => {
       this.broadcast({ type: 'overview:events', payload: events })
+    })
+
+    this.usageService?.on('changed', (state: UsageState) => {
+      this.broadcast({ type: 'usage:changed', payload: state })
     })
 
     this.agentManager.on('agent_waiting', (payload: { agentId: string }) => {
@@ -444,6 +483,50 @@ export class DaemonServer {
         return this.json(res, 200, this.overviewHistory?.query(sinceMs) ?? emptyHistory())
       }
 
+      if (method === 'GET' && path === '/usage/state') {
+        return this.json(res, 200, this.usageService?.state() ?? emptyUsageState())
+      }
+
+      if (method === 'GET' && path === '/usage/summary') {
+        const period = url.searchParams.get('period')
+        if (period !== 'today' && period !== 'week' && period !== 'month') {
+          return this.json(res, 400, { error: 'period must be today, week or month' })
+        }
+        const project = url.searchParams.get('project') || undefined
+        if (project !== undefined && project.length > 4096) {
+          return this.json(res, 400, { error: 'project is too long' })
+        }
+        if (!this.usageService) return this.json(res, 200, emptyUsageSummary(period))
+        return this.json(res, 200, this.usageService.summary(period, project))
+      }
+
+      if (method === 'GET' && path === '/usage/report') {
+        const daysParam = url.searchParams.get('days')
+        const days = daysParam === null ? 30 : Number(daysParam)
+        if (!Number.isInteger(days) || days < REPORT_MIN_DAYS || days > REPORT_MAX_DAYS) {
+          return this.json(res, 400, { error: `days must be an integer from ${REPORT_MIN_DAYS} to ${REPORT_MAX_DAYS}` })
+        }
+        const provider = url.searchParams.get('provider') ?? 'all'
+        if (provider !== 'claude' && provider !== 'codex' && provider !== 'all') {
+          return this.json(res, 400, { error: 'provider must be claude, codex or all' })
+        }
+        if (!this.usageService) {
+          return this.json(res, 200, buildUsageReport([], { days, provider, now: new Date() }))
+        }
+        return this.json(res, 200, this.usageService.report(days, provider))
+      }
+
+      if (method === 'POST' && path === '/usage/refresh') {
+        return this.json(res, 200, this.usageService ? await this.usageService.refresh() : emptyUsageState())
+      }
+
+      if (method === 'POST' && path === '/usage/visible') {
+        this.usageService?.setVisible()
+        res.writeHead(204)
+        res.end()
+        return
+      }
+
       if (method === 'GET' && path === '/overview/waits') {
         return this.json(res, 200, { ledger: this.overviewHistory?.waits() ?? emptyWaits().ledger })
       }
@@ -605,6 +688,11 @@ export class DaemonServer {
         const body = await this.readBody<Partial<AppConfig>>(req)
         const updated = this.configStore.set(body)
         this.broadcast({ type: 'config:changed', payload: updated })
+        try {
+          this.onConfigChanged?.(updated)
+        } catch {
+          /* a listener never fails the save */
+        }
         return this.json(res, 200, updated)
       }
 

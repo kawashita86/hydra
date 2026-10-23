@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+import type { UsageState } from '@shared/usage/types'
 import type { HistoryAgent, WaitingNow } from '@shared/overview/types'
 import { lastHourWaits } from '@shared/overview/waits'
 import type { CountKey } from '@shared/overview/buckets'
@@ -17,6 +18,7 @@ import { NeedsYouPanel } from './NeedsYouPanel'
 import { OwnEvents } from './OwnEvents'
 import { SessionDetails } from './SessionDetails'
 import { SessionsCard } from './SessionsCard'
+import { UsageCard } from './UsageCard'
 import { WaitedOnYou } from './WaitedOnYou'
 import { WaitsCard } from './WaitsCard'
 import { OwnTimeline, TimelineCard } from './TimelineCard'
@@ -34,6 +36,10 @@ interface OverviewViewProps {
   onOpenNewAgent?: () => void
   /** Snapshot state owned by the parent (shared with the tab badge); subscribes itself when absent. */
   overview?: OverviewData
+  /** Usage state owned by `App`; `null` while loading. Leave undefined to hide the usage card. */
+  usage?: UsageState | null
+  /** Opens the detailed usage report. */
+  onOpenUsageReport?: () => void
 }
 
 function readStoredFilter(): string {
@@ -57,7 +63,7 @@ function plural(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
-export function OverviewView({ onOpenNewAgent, onJumpToAgent, overview }: OverviewViewProps) {
+export function OverviewView({ onOpenNewAgent, onJumpToAgent, overview, usage, onOpenUsageReport }: OverviewViewProps) {
   const own = useOverviewSnapshot(overview !== undefined)
   const { snapshot, loading, error } = overview ?? own
   const now = useNow()
@@ -241,6 +247,8 @@ export function OverviewView({ onOpenNewAgent, onJumpToAgent, overview }: Overvi
       </div>
 
       <div className={styles.grid}>
+        {usage !== undefined && <UsageCard state={usage} projectDir={filter} onOpenReport={onOpenUsageReport} />}
+
         <Card
           title="Needs you"
           area="needs"

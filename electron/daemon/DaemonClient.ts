@@ -20,6 +20,8 @@ import type {
   SkillTogglePayload,
   FreeTerminalLayout
 } from '@shared/types'
+import type { UsageReport, UsageReportProvider } from '@shared/usage/report'
+import type { UsagePeriod, UsageState, UsageSummary } from '@shared/usage/types'
 import type { AgentDetails, HistoryResponse, OverviewSnapshot, WaitsResponse } from '@shared/overview/types'
 import type { DaemonHealthResponse, WsServerMessage } from './protocol'
 
@@ -105,6 +107,9 @@ export class DaemonClient extends EventEmitter {
           case 'overview:events':
             this.emit('overview:events', msg.payload)
             break
+          case 'usage:changed':
+            this.emit('usage:changed', msg.payload)
+            break
           case 'notification':
             this.emit('notification', msg.payload)
             break
@@ -179,6 +184,27 @@ export class DaemonClient extends EventEmitter {
 
   async getOverviewHistory(sinceMs: number): Promise<HistoryResponse> {
     return this.httpRequest('GET', `/overview/history?since=${Math.max(0, Math.floor(sinceMs))}`)
+  }
+
+  async getUsageState(): Promise<UsageState> {
+    return this.httpRequest('GET', '/usage/state')
+  }
+
+  async getUsageSummary(period: UsagePeriod, projectKey?: string): Promise<UsageSummary> {
+    const project = projectKey ? `&project=${encodeURIComponent(projectKey)}` : ''
+    return this.httpRequest('GET', `/usage/summary?period=${period}${project}`)
+  }
+
+  async getUsageReport(days: number, provider: UsageReportProvider): Promise<UsageReport> {
+    return this.httpRequest('GET', `/usage/report?days=${days}&provider=${provider}`)
+  }
+
+  async refreshUsage(): Promise<UsageState> {
+    return this.httpRequest('POST', '/usage/refresh')
+  }
+
+  async setUsageVisible(): Promise<void> {
+    await this.httpRequest('POST', '/usage/visible')
   }
 
   async getOverviewWaits(): Promise<WaitsResponse> {

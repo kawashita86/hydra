@@ -1,3 +1,5 @@
+import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from './usage/settings'
+
 // ── Agent ────────────────────────────────────────────────────────────────────
 
 export type AgentStatus = 'running' | 'idle' | 'errored' | 'starting'
@@ -195,6 +197,8 @@ export interface AppConfig {
    * inherit; the longest matching path wins. `''` forces the default profile.
    */
   claudeProfileByProject: Record<string, string>
+  // ── Usage & limits ───────────────────────────────────────────────────────
+  usage: UsageSettings
 }
 
 /** A Claude Code config dir found on this machine (`~/.claude` or `~/.claude-<name>`). */
@@ -242,7 +246,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   freeTerminalScrollbackLines: 5000,
   gitPanelDisplayMode: 'overlay',
   editorPanelDisplayMode: 'overlay',
-  claudeProfileByProject: {}
+  claudeProfileByProject: {},
+  usage: { ...DEFAULT_USAGE_SETTINGS }
 }
 
 // ── IPC Channels ─────────────────────────────────────────────────────────────
@@ -326,8 +331,13 @@ export const IPC = {
   OBS_LOG_EVENT: 'obs:log-event',
   OBS_EXPORT_DIAGNOSTICS: 'obs:export-diagnostics',
 
-  // Usage dashboard (ccusage)
-  USAGE_DASHBOARD_GET: 'usage:dashboard-get',
+  // Usage & limits
+  USAGE_REPORT_GET: 'usage:report-get',
+  USAGE_STATE_GET: 'usage:state-get',
+  USAGE_SUMMARY_GET: 'usage:summary-get',
+  USAGE_REFRESH: 'usage:refresh',
+  USAGE_VISIBLE: 'usage:visible',
+  USAGE_CHANGED: 'usage:changed',
 
   // App updates
   UPDATE_GET_STATE: 'update:get-state',
@@ -535,44 +545,6 @@ export interface HeadlessRunLogPayload {
   truncated: boolean
 }
 
-// ── Usage dashboard (ccusage) ────────────────────────────────────────────────
-
-export interface CcusageModelBreakdown {
-  modelName: string
-  inputTokens: number
-  outputTokens: number
-  cacheCreationTokens: number
-  cacheReadTokens: number
-  cost: number
-}
-
-export interface CcusageDailyEntry {
-  date: string
-  inputTokens: number
-  outputTokens: number
-  cacheCreationTokens: number
-  cacheReadTokens: number
-  totalTokens: number
-  totalCost: number
-  modelsUsed: string[]
-  modelBreakdowns: CcusageModelBreakdown[]
-}
-
-export interface CcusageSnapshot {
-  available: boolean
-  provider: ProviderId
-  installHint?: string
-  generatedAt: string
-  daily: CcusageDailyEntry[]
-  /** project key → daily entries */
-  projects: Record<string, CcusageDailyEntry[]>
-}
-
-export interface CcusageOptions {
-  days?: number
-  provider?: ProviderId
-}
-
 // ── App updates ───────────────────────────────────────────────────────────────
 
 export type UpdateInstallMethod = 'brew' | 'direct' | 'unknown'
@@ -641,6 +613,7 @@ export type NotificationType =
   | 'agent_started'
   | 'headless_completed'
   | 'headless_errored'
+  | 'usage_limit'
 
 export interface HydraNotification {
   id: string

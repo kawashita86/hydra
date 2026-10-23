@@ -60,6 +60,7 @@
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   grid-template-areas:
+    'usage usage'
     'needs lastHour'
     'sessions events'
     'timeline timeline'
@@ -71,6 +72,7 @@
   .grid {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
+      'usage'
       'needs'
       'lastHour'
       'sessions'
@@ -80,6 +82,7 @@
   }
 }
 
+.usage { grid-area: usage; }
 .needs { grid-area: needs; }
 .lastHour { grid-area: lastHour; }
 .sessions { grid-area: sessions; }

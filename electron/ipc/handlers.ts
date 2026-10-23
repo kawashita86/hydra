@@ -20,15 +20,17 @@ import type {
   AppConfig,
   ObservabilityLogEventPayload,
   ExportDiagnosticsResult,
-  CcusageOptions,
-  CcusageSnapshot,
-  CcusageDailyEntry,
   EditorId
 } from '@shared/types'
+import { REPORT_MAX_DAYS, REPORT_MIN_DAYS } from '@shared/usage/report'
 import { z } from 'zod'
 
 const editorIdSchema = z.enum(['vscode', 'cursor', 'windsurf', 'antigravity', 'zed', 'finder', 'terminal'])
 const agentIdSchema = z.string().trim().min(1).max(128)
+const usagePeriodSchema = z.enum(['today', 'week', 'month'])
+const usageProjectSchema = z.string().max(4096)
+const usageReportDaysSchema = z.number().int().min(REPORT_MIN_DAYS).max(REPORT_MAX_DAYS)
+const usageReportProviderSchema = z.enum(['claude', 'codex', 'all'])
 const projectDirSchema = z.string().trim().min(1).max(4096)
 const providerSchema = z.enum(['claude', 'codex', 'opencode'])
 const modelSchema = z.string().trim().min(1).max(128)
@@ -100,7 +102,17 @@ const appConfigPatchSchema = z
     freeTerminalScrollbackLines: z.number().int().min(100).max(100000).optional(),
     gitPanelDisplayMode: z.enum(['overlay', 'split']).optional(),
     editorPanelDisplayMode: z.enum(['overlay', 'split']).optional(),
-    claudeProfileByProject: z.record(z.string().min(1).max(4096), z.string().max(4096)).optional()
+    claudeProfileByProject: z.record(z.string().min(1).max(4096), z.string().max(4096)).optional(),
+    usage: z
+      .object({
+        alertsEnabled: z.boolean(),
+        sessionAlertPercent: z.number().int().min(50).max(100),
+        weeklyAlertPercent: z.number().int().min(50).max(100),
+        chipProvider: z.enum(['auto', 'claude', 'codex']),
+        showCost: z.boolean()
+      })
+      .strict()
+      .optional()
   })
   .strict()
 const headlessStartSchema = z.object({
@@ -122,12 +134,6 @@ const headlessLogOptionsSchema = z
   .object({
     tailLines: z.number().int().min(1).max(5000).optional(),
     maxChars: z.number().int().min(200).max(500000).optional()
-  })
-  .optional()
-const ccusageOptionsSchema = z
-  .object({
-    days: z.number().int().min(1).max(90).optional(),
-    provider: providerSchema.optional()
   })
   .optional()
 const sessionListOptionsSchema = z
@@ -276,6 +282,29 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC.OVERVIEW_HISTORY, async (_event, sinceMs: number) => {
     return getDaemonClient().getOverviewHistory(z.number().finite().parse(sinceMs))
+  })
+
+  ipcMain.handle(IPC.USAGE_STATE_GET, async () => {
+    return getDaemonClient().getUsageState()
+  })
+
+  ipcMain.handle(IPC.USAGE_SUMMARY_GET, async (_event, period: unknown, projectKey?: unknown) => {
+    return getDaemonClient().getUsageSummary(
+      usagePeriodSchema.parse(period),
+      usageProjectSchema.optional().parse(projectKey)
+    )
+  })
+
+  ipcMain.handle(IPC.USAGE_REPORT_GET, async (_event, days: unknown, provider: unknown) => {
+    return getDaemonClient().getUsageReport(usageReportDaysSchema.parse(days), usageReportProviderSchema.parse(provider))
+  })
+
+  ipcMain.handle(IPC.USAGE_REFRESH, async () => {
+    return getDaemonClient().refreshUsage()
+  })
+
+  ipcMain.handle(IPC.USAGE_VISIBLE, async () => {
+    await getDaemonClient().setUsageVisible()
   })
 
   ipcMain.handle(IPC.OVERVIEW_WAITS, async () => {
@@ -643,135 +672,6 @@ export function registerIpcHandlers(
 
   ipcMain.handle(IPC.OBS_EXPORT_DIAGNOSTICS, () => {
     return observability.exportDiagnostics()
-  })
-
-  // ── Usage dashboard (ccusage) ──────────────────────────────────────────────
-
-  ipcMain.handle(IPC.USAGE_DASHBOARD_GET, async (_event, options?: CcusageOptions): Promise<CcusageSnapshot> => {
-    const parsed = ccusageOptionsSchema.parse(options)
-    const days = parsed?.days ?? 30
-    const provider = parsed?.provider ?? 'claude'
-    const since = new Date()
-    since.setDate(since.getDate() - days)
-    const sinceStr = since.toISOString().slice(0, 10).replace(/-/g, '')
-    const installHint =
-      provider === 'codex'
-        ? 'Install Codex usage support to view usage data:\n  npx @ccusage/codex@latest daily\n  bunx @ccusage/codex@latest daily'
-        : 'Install ccusage to view usage data:\n  npm install -g ccusage\n  bun add -g ccusage'
-
-    const notInstalled: CcusageSnapshot = {
-      available: false,
-      provider,
-      installHint,
-      generatedAt: new Date().toISOString(),
-      daily: [],
-      projects: {}
-    }
-
-    const usageCommands = provider === 'codex' ? ['npx', 'bunx'] : ['ccusage']
-    const baseArgs =
-      provider === 'codex'
-        ? ['-y', '@ccusage/codex@latest', 'daily', '--json', '--since', sinceStr]
-        : ['daily', '--json', '--since', sinceStr]
-    const argsForCommand = (command: string, args: string[]) =>
-      command === 'bunx' && args[0] === '-y' ? args.slice(1) : args
-
-    const runUsageCommand = (args: string[]): Promise<{ error: Error | null; stdout: string }> =>
-      new Promise((resolve) => {
-        const runAt = (index: number): void => {
-          const command = usageCommands[index]
-          execFile(
-            command,
-            argsForCommand(command, args),
-            { timeout: 15_000, env: { ...process.env, FORCE_COLOR: '0' } },
-            (error, stdout) => {
-              const isMissing = error && ((error as NodeJS.ErrnoException).code === 'ENOENT' || error.message?.includes('ENOENT'))
-              if (isMissing && index < usageCommands.length - 1) {
-                runAt(index + 1)
-                return
-              }
-              resolve({ error, stdout })
-            }
-          )
-        }
-
-        runAt(0)
-      })
-
-    return new Promise<CcusageSnapshot>((resolve) => {
-      const resolveAvailable = (daily: CcusageDailyEntry[], projects: Record<string, CcusageDailyEntry[]>) => {
-        resolve({
-          available: true,
-          provider,
-          generatedAt: new Date().toISOString(),
-          daily,
-          projects
-        })
-      }
-
-      if (provider === 'codex') {
-        void runUsageCommand(baseArgs).then(({ error, stdout }) => {
-          if (error) {
-            if ((error as NodeJS.ErrnoException).code === 'ENOENT' || error.message?.includes('ENOENT')) {
-              resolve(notInstalled)
-              return
-            }
-            resolveAvailable([], {})
-            return
-          }
-
-          try {
-            const data = JSON.parse(stdout)
-            const daily = Array.isArray(data.daily) ? data.daily as CcusageDailyEntry[] : []
-            resolveAvailable(daily, {})
-          } catch {
-            resolveAvailable([], {})
-          }
-        })
-        return
-      }
-
-      // Claude: fetch aggregate daily and project-grouped data separately.
-      void runUsageCommand([...baseArgs, '--instances']).then(({ error, stdout }) => {
-        if (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT' || error.message?.includes('ENOENT')) {
-            resolve(notInstalled)
-            return
-          }
-          resolveAvailable([], {})
-          return
-        }
-
-        try {
-          const data = JSON.parse(stdout)
-          const projects: Record<string, CcusageDailyEntry[]> = {}
-          if (data.projects && typeof data.projects === 'object') {
-            for (const [key, entries] of Object.entries(data.projects)) {
-              if (Array.isArray(entries)) {
-                projects[key] = entries as CcusageDailyEntry[]
-              }
-            }
-          }
-
-          void runUsageCommand(baseArgs).then(({ error: error2, stdout: stdout2 }) => {
-            let daily: CcusageDailyEntry[] = []
-            if (!error2) {
-              try {
-                const data2 = JSON.parse(stdout2)
-                if (Array.isArray(data2.daily)) {
-                  daily = data2.daily
-                }
-              } catch {
-                // best effort
-              }
-            }
-            resolveAvailable(daily, projects)
-          })
-        } catch {
-          resolveAvailable([], {})
-        }
-      })
-    })
   })
 
   // ── App updates ────────────────────────────────────────────────────────────

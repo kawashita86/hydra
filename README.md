@@ -22,7 +22,7 @@ Hydra is a cross-platform desktop application (macOS, Windows, and Linux) that l
   - [Session Management](#session-management)
   - [MCP Manager Agent](#mcp-manager-agent)
   - [Headless Orchestration](#headless-orchestration)
-  - [Usage Dashboard and Budgets](#usage-dashboard-and-budgets)
+  - [Usage and Limits](#usage-and-limits)
   - [Remote Control and Hydra Remote PWA](#remote-control-and-hydra-remote-pwa)
   - [Observability](#observability)
 - [Getting Started](#getting-started)
@@ -128,14 +128,15 @@ Queue non-interactive background runs that execute without a visible terminal. U
 - Session resume support
 - Run lifecycle management (start, monitor, cancel)
 
-### Usage Dashboard and Budgets
+### Usage and Limits
 
-Hydra aggregates usage signals parsed from CLI output into a dashboard grouped by day, project, and agent.
+Hydra scans your local Claude Code and Codex logs (no extra tools to install) and shows token usage and estimated API-equivalent cost.
 
-- Daily rollups for tokens and cost-like values
-- Per-project and per-agent breakdown tables
-- Soft daily budget limits (tokens and USD)
-- Warning notifications when usage reaches threshold or exceeds budget
+- Header chip and popover with plan limits (5-hour and weekly) and tokens for today, this week and this month
+- "Usage & limits" card at the top of the Overview
+- Detailed report (daily trend, per-model and per-project breakdown) for Claude, Codex or both
+- Optional low-limit alerts and a setting to hide costs (Settings > Usage)
+- Soft daily budget limits (tokens and USD) with warning notifications
 
 ### Remote Control and Hydra Remote PWA
 

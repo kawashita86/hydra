@@ -19,6 +19,7 @@ import { RemoteControlModal } from './components/RemoteControl/RemoteControlModa
 import { PreflightTestModal } from './components/PreflightTestModal/PreflightTestModal'
 import { useAgents } from './hooks/useAgents'
 import { useConfig } from './hooks/useConfig'
+import { UsageSettingsProvider } from './components/Usage/UsageSettingsContext'
 import { TerminalConfigContext, deriveTerminalConfig } from './hooks/useTerminalConfig'
 import { useKeybindings } from './hooks/useKeybindings'
 import { useViewMode } from './hooks/useViewMode'
@@ -35,6 +36,7 @@ import {
 } from '@shared/keybindings'
 import { SIDEBAR_SEARCH_FOCUS_EVENT } from './components/Sidebar/SearchBar'
 import { useOverviewSnapshot, needsYouCount } from './hooks/useOverview'
+import { useUsageState } from './hooks/useUsage'
 import { useNeedsYouTitle } from './hooks/useNeedsYouTitle'
 import { OverviewView } from './components/Overview/OverviewView'
 import { ShortcutsOverlay } from './components/Shortcuts/ShortcutsOverlay'
@@ -117,6 +119,8 @@ export default function App() {
   // One snapshot subscription for the tab badge, the window title and the Overview view (its 1 s tick stays inside the view).
   const overview = useOverviewSnapshot()
   const needsYou = needsYouCount(overview.snapshot)
+  // One usage subscription for the header chip (and the Overview card); the popover reads it from here.
+  const usage = useUsageState()
   useNeedsYouTitle(needsYou)
   const {
     agents,
@@ -697,6 +701,7 @@ export default function App() {
 
   return (
     <TerminalConfigContext.Provider value={terminalVisualConfig}>
+    <UsageSettingsProvider settings={config.usage}>
     <div className={styles.app}>
       <Header
         viewMode={viewMode}
@@ -709,6 +714,7 @@ export default function App() {
         onOpenHeadless={() => setShowHeadless(true)}
         onOpenRemote={() => setShowRemoteControl(true)}
         remoteActive={remoteControl.state.enabled}
+        usage={usage}
         onOpenUsage={() => setShowUsageDashboard(true)}
         onOpenUpdates={() => setShowUpdatePanel(true)}
         showUpdateAction={updateState.supported}
@@ -826,6 +832,8 @@ export default function App() {
           ) : renderedViewMode === 'overview' ? (
             <OverviewView
               overview={overview}
+              usage={usage}
+              onOpenUsageReport={() => setShowUsageDashboard(true)}
               onJumpToAgent={handleJumpToAgent}
               onOpenNewAgent={() => {
                 void handleOpenNewAgent()
@@ -1135,6 +1143,7 @@ export default function App() {
 
       <NotificationToast notifications={notifications} onDismiss={dismissNotification} />
     </div>
+    </UsageSettingsProvider>
     </TerminalConfigContext.Provider>
   )
 }

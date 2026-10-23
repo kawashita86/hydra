@@ -17,6 +17,8 @@ function getVariant(type: NotificationType): 'success' | 'error' | 'info' | 'war
       return 'error'
     case 'agent_started':
       return 'info'
+    case 'usage_limit':
+      return 'warning'
   }
 }
 
